@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>솔방울마켓</title>
+<!--
+  쇼핑몰 한 페이지 + 우측 하단 상담 챗봇 (Vue 3 CDN, 빌드 없음)
+
+  - 상품 그리드 / 내 주문 패널: GET /api/shop/* (목업 데이터 — 에이전트의 MCP Tool과 같은 파일)
+  - 챗봇: GET /chat/stream (SSE) — 에이전트가 단계별 이벤트와 답변 토큰을 흘려보낸다
+  - "이 주문 문의하기"를 누르면 주문번호가 채팅 입력창에 미리 채워진다
+  솔방울마켓은 실존하지 않는 가상의 쇼핑몰이다.
+-->
+<style>
+  :root {
+    --bg: #f6f5f1; --surface: #ffffff; --surface-2: #f0eee8; --line: #e3e0d8;
+    --text: #23211d; --muted: #6f6a60; --brand: #2f6b4f; --brand-ink: #ffffff;
+    --brand-soft: #e3efe8; --warn: #b4531a; --warn-soft: #fbeadf;
+    --shadow: 0 6px 24px rgba(30, 28, 22, .10);
+    --b-paid: #5b6472; --b-preparing: #5a55b5; --b-shipping: #2367b1;
+    --b-delayed: #b4531a; --b-delivered: #2f7d4f; --b-return: #8a3fa0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #171714; --surface: #211f1b; --surface-2: #2a2823; --line: #38352e;
+      --text: #ece9e1; --muted: #a39d90; --brand: #5fae86; --brand-ink: #0f1a14;
+      --brand-soft: #22352b; --warn: #f0965a; --warn-soft: #3a261a;
+      --shadow: 0 6px 24px rgba(0, 0, 0, .45);
+      --b-paid: #9aa3b1; --b-preparing: #a29cf0; --b-shipping: #6fa8e8;
+      --b-delayed: #f0965a; --b-delivered: #6cc492; --b-return: #cf8ae0;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #171714; --surface: #211f1b; --surface-2: #2a2823; --line: #38352e;
+    --text: #ece9e1; --muted: #a39d90; --brand: #5fae86; --brand-ink: #0f1a14;
+    --brand-soft: #22352b; --warn: #f0965a; --warn-soft: #3a261a;
+    --shadow: 0 6px 24px rgba(0, 0, 0, .45);
+    --b-paid: #9aa3b1; --b-preparing: #a29cf0; --b-shipping: #6fa8e8;
+    --b-delayed: #f0965a; --b-delivered: #6cc492; --b-return: #cf8ae0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    font-size: 15px; line-height: 1.5;
+  }
+  button { font: inherit; cursor: pointer; }
+
+  /* ── 헤더 ─────────────────────────────────────────── */
+  header.top {
+    position: sticky; top: 0; z-index: 10; background: var(--surface);
+    border-bottom: 1px solid var(--line);
+  }
+  .top-inner {
+    max-width: 1180px; margin: 0 auto; padding: 12px 16px;
+    display: flex; align-items: center; gap: 20px;
+  }
+  .logo { font-weight: 800; font-size: 20px; color: var(--brand); letter-spacing: -0.5px; }
+  .nav { display: flex; gap: 16px; color: var(--muted); font-size: 14px; }
+  .who { margin-left: auto; font-size: 14px; color: var(--muted); white-space: nowrap; }
+  .who b { color: var(--text); }
+
+  /* ── 본문 레이아웃: 상품(왼쪽) + 내 주문(오른쪽) ─────────── */
+  main {
+    max-width: 1180px; margin: 0 auto; padding: 20px 16px 120px;
+    display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 24px; align-items: start;
+  }
+  .banner {
+    grid-column: 1 / -1; background: var(--brand-soft); border-radius: 14px;
+    padding: 18px 22px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  }
+  .banner h1 { margin: 0 0 2px; font-size: 20px; }
+  .banner p { margin: 0; color: var(--muted); font-size: 14px; }
+  h2 { font-size: 17px; margin: 0 0 12px; }
+  .products { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px; }
+  .product {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+  }
+  .product .thumb {
+    height: 120px; display: grid; place-items: center; font-size: 52px; background: var(--surface-2);
+  }
+  .product .info { padding: 10px 12px 12px; }
+  .product .cat { font-size: 12px; color: var(--muted); }
+  .product .name { font-size: 14px; margin: 2px 0 6px; min-height: 42px; }
+  .product .price { font-weight: 700; }
+
+  /* ── 내 주문 패널 ─────────────────────────────────── */
+  aside.orders { position: sticky; top: 76px; }
+  .order {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: 12px 14px; margin-bottom: 10px;
+  }
+  .order-head { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  .order-head .oid { font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+  .badge {
+    margin-left: auto; font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px;
+    border: 1.5px solid currentColor;
+  }
+  .s-paid { color: var(--b-paid); } .s-preparing { color: var(--b-preparing); }
+  .s-shipping { color: var(--b-shipping); } .s-delayed { color: var(--b-delayed); }
+  .s-delivered { color: var(--b-delivered); } .s-return_requested { color: var(--b-return); }
+  .order .items { margin: 6px 0 2px; font-size: 14px; }
+  .order .amount { font-size: 13px; color: var(--muted); }
+  .issue {
+    margin-top: 8px; background: var(--warn-soft); color: var(--warn); font-size: 13px;
+    border-radius: 8px; padding: 6px 9px;
+  }
+  .order-actions { display: flex; gap: 8px; margin-top: 10px; }
+  .btn-ghost {
+    background: none; border: 1px solid var(--line); color: var(--text);
+    border-radius: 8px; padding: 5px 10px; font-size: 13px;
+  }
+  .btn-brand {
+    background: var(--brand); color: var(--brand-ink); border: none;
+    border-radius: 8px; padding: 5px 10px; font-size: 13px; font-weight: 600;
+  }
+  .timeline { list-style: none; margin: 10px 0 0; padding: 0 0 0 14px; border-left: 2px solid var(--line); }
+  .timeline li { position: relative; font-size: 13px; padding: 0 0 8px 6px; }
+  .timeline li::before {
+    content: ""; position: absolute; left: -20px; top: 6px; width: 8px; height: 8px;
+    border-radius: 50%; background: var(--line);
+  }
+  .timeline li:last-child::before { background: var(--brand); }
+  .timeline .t { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  /* ── 챗봇 버튼 + 패널 ─────────────────────────────── */
+  .fab {
+    position: fixed; right: 22px; bottom: 22px; z-index: 30; border: none;
+    background: var(--brand); color: var(--brand-ink); border-radius: 999px;
+    padding: 14px 20px; font-weight: 700; box-shadow: var(--shadow);
+  }
+  .chat {
+    position: fixed; right: 22px; bottom: 22px; z-index: 40; width: 400px; height: min(640px, calc(100vh - 44px));
+    background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .chat-head {
+    padding: 12px 14px; background: var(--brand); color: var(--brand-ink);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .chat-head .title { font-weight: 700; }
+  .chat-head .sub { font-size: 11px; opacity: .85; display: block; font-weight: 400; }
+  .chat-head .close {
+    margin-left: auto; background: none; border: none; color: inherit; font-size: 22px; line-height: 1;
+  }
+  .log {
+    flex: 1; min-height: 0; overflow-y: auto; padding: 14px;
+    display: flex; flex-direction: column; gap: 10px; background: var(--bg);
+  }
+  .row { display: flex; }
+  .row.user { justify-content: flex-end; }
+  .bubble {
+    max-width: 85%; padding: 9px 12px; border-radius: 14px; font-size: 14px; white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .row.user .bubble { background: var(--brand); color: var(--brand-ink); border-bottom-right-radius: 4px; }
+  .row.agent .bubble { background: var(--surface); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+  .row.agent .bubble.rejected { opacity: .5; text-decoration: line-through; }
+  .rejected-tag { font-size: 11px; color: var(--warn); margin: -6px 0 0 4px; }
+  .steps { font-size: 12px; color: var(--muted); padding: 0 4px; }
+  .steps summary { cursor: pointer; user-select: none; }
+  .steps ol { margin: 4px 0 0; padding-left: 18px; }
+  .steps li.pending { list-style: "⏳ "; }
+  .prompt-box { font-size: 12px; color: var(--muted); padding: 0 4px; }
+  .prompt-box summary { cursor: pointer; }
+  .prompt-box pre {
+    white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow-y: auto;
+    background: var(--surface-2); border-radius: 8px; padding: 8px; margin: 4px 0 0;
+    font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: var(--text);
+  }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 12px 0; background: var(--surface); }
+  .chip {
+    border: 1px solid var(--line); background: var(--surface); color: var(--text);
+    border-radius: 999px; padding: 4px 10px; font-size: 12px;
+  }
+  form.send { display: flex; gap: 8px; padding: 10px 12px 12px; background: var(--surface); }
+  form.send input {
+    flex: 1; min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--text); font-size: 14px;
+  }
+  form.send button {
+    border: none; border-radius: 10px; padding: 0 16px; background: var(--brand); color: var(--brand-ink);
+    font-weight: 600;
+  }
+  form.send button:disabled { opacity: .5; cursor: default; }
+
+  /* ── 좁은 화면: 한 줄로 쌓고, 채팅 패널은 화면 전체를 덮는다 ──── */
+  @media (max-width: 900px) {
+    main { grid-template-columns: minmax(0, 1fr); }
+    aside.orders { position: static; order: -1; }
+    .banner { order: -2; }
+    .nav { display: none; }
+  }
+  @media (max-width: 560px) {
+    .chat { inset: 0; width: auto; height: auto; border-radius: 0; border: none; }
+    .fab { right: 16px; bottom: 16px; }
+    .products { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <div class="top-inner">
+      <div class="logo">🌲 {{ customer.store_name || '솔방울마켓' }}</div>
+      <nav class="nav"><span>신상품</span><span>베스트</span><span>의류</span><span>리빙</span></nav>
+      <div class="who" v-if="customer.name"><b>{{ customer.name }}</b>님 · {{ customer.grade }}</div>
+    </div>
+  </header>
+
+  <main>
+    <section class="banner">
+      <div>
+        <h1>주문·배송이 궁금하면 바로 물어보세요</h1>
+        <p>오른쪽 아래 상담 챗봇이 내 주문 정보와 쇼핑몰 정책을 확인해 안내해 드려요.</p>
+      </div>
+      <p>기준일 {{ asOf }}</p>
+    </section>
+
+    <section>
+      <h2>추천 상품</h2>
+      <div class="products">
+        <div class="product" v-for="p in products" :key="p.product_id">
+          <div class="thumb">{{ p.emoji }}</div>
+          <div class="info">
+            <div class="cat">{{ p.category }}</div>
+            <div class="name">{{ p.name }}</div>
+            <div class="price">{{ won(p.price) }}</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="orders">
+      <h2>내 주문 · 배송</h2>
+      <div v-if="loadError" class="issue">주문 정보를 불러오지 못했습니다 — 백엔드(server.py)가 떠 있는지 확인하세요.</div>
+      <div class="order" v-for="o in orders" :key="o.order_id">
+        <div class="order-head">
+          <span class="oid">{{ o.order_id }}</span>
+          <span>{{ o.ordered_at.slice(0, 10) }}</span>
+          <span class="badge" :class="'s-' + o.status">{{ o.status_label }}</span>
+        </div>
+        <div class="items">{{ o.item_names.join(', ') }}</div>
+        <div class="amount">결제 {{ won(o.total_amount) }}
+          <template v-if="o.delivered_at"> · {{ o.delivered_at.slice(5, 10).replace('-', '/') }} 도착</template>
+          <template v-else> · {{ o.expected_delivery.slice(5).replace('-', '/') }} 도착 예정</template>
+        </div>
+        <div class="issue" v-if="o.issue">⚠ {{ o.issue }}</div>
+        <div class="order-actions">
+          <button class="btn-ghost" v-if="o.tracking.length" @click="toggle(o.order_id)">
+            {{ openTracking[o.order_id] ? '추적 접기' : '배송 추적' }}
+          </button>
+          <button class="btn-brand" @click="askAbout(o)">이 주문 문의하기</button>
+        </div>
+        <ol class="timeline" v-if="openTracking[o.order_id]">
+          <li v-for="(e, i) in o.tracking" :key="i">
+            <span class="t">{{ e.time.slice(5) }}</span> {{ e.location }} — {{ e.status }}
+          </li>
+        </ol>
+      </div>
+    </aside>
+  </main>
+
+  <button class="fab" v-if="!chatOpen" @click="openChat()">💬 상담 챗봇</button>
+
+  <section class="chat" v-if="chatOpen" role="dialog" aria-label="상담 챗봇">
+    <div class="chat-head">
+      <div>
+        <span class="title">솔방울마켓 상담 챗봇</span>
+        <span class="sub">{{ backendLabel }}</span>
+      </div>
+      <button class="close" @click="chatOpen = false" aria-label="닫기">×</button>
+    </div>
+
+    <div class="log" ref="logEl">
+      <div class="row agent">
+        <div class="bubble">안녕하세요, {{ customer.name || '고객' }}님! 주문·배송·반품 문의를 도와드릴게요.
+조회와 안내만 가능하고, 반품·취소 신청은 마이페이지에서 직접 해주셔야 해요.</div>
+      </div>
+      <template v-for="item in log" :key="item.id">
+        <div v-if="item.kind === 'user'" class="row user"><div class="bubble">{{ item.text }}</div></div>
+
+        <details v-else-if="item.kind === 'steps'" class="steps" :open="item.open">
+          <summary>{{ item.done ? `처리 과정 ${item.steps.length}단계 보기` : '확인 중…' }}</summary>
+          <ol>
+            <li v-for="(s, i) in item.steps" :key="i">{{ s }}</li>
+            <li v-if="!item.done" class="pending">진행 중</li>
+          </ol>
+        </details>
+
+        <template v-else-if="item.kind === 'agent'">
+          <div class="row agent"><div class="bubble" :class="{ rejected: item.rejected }">{{ item.text }}</div></div>
+          <div v-if="item.rejected" class="rejected-tag">검수에서 반려된 초안 — 다시 작성합니다</div>
+        </template>
+
+        <details v-else-if="item.kind === 'prompt'" class="prompt-box">
+          <summary>🔍 답변 근거(LLM에 전달된 사실) 보기</summary>
+          <pre>{{ item.text }}</pre>
+        </details>
+      </template>
+    </div>
+
+    <div class="chips">
+      <button class="chip" v-for="c in quickQuestions" :key="c" :disabled="sending" @click="send(c)">{{ c }}</button>
+    </div>
+    <form class="send" @submit.prevent="send(input)">
+      <input ref="inputEl" v-model="input" autocomplete="off" placeholder="예: 택배가 3일째 안 와요" />
+      <button type="submit" :disabled="sending || !input.trim()">보내기</button>
+    </form>
+  </section>
+</div>
+
+<script src="https://unpkg.com/vue@3.4.38/dist/vue.global.prod.js"></script>
+<script>
+const { createApp, ref, reactive, nextTick, onMounted } = Vue;
+
+// validate 노드의 검사 이름 → 화면 표시
+const CHECK_NAMES = { format: '형식', numbers: '금액·기간', order_ids: '주문번호', dates: '날짜', coverage: '주문 누락' };
+
+// SSE 이벤트(type) → '처리 과정'에 보여줄 한 줄. null을 돌려주면 표시하지 않는다.
+const STEP_LABELS = {
+  PlanCreated: e => e.targets.length
+      ? `확인할 주문: ${e.targets.join(', ')} (${e.reason})`
+      : `주문 조회 없이 진행 (${e.reason})`,
+  GateApplied: e => e.removed_analysis_tasks ? `불필요한 작업 ${e.removed_analysis_tasks}건 제거` : null,
+  TaskCompleted: e => (e.source === 'product'
+      ? `상품 조회: ${e.target}`
+      : e.source === 'order'
+      ? (e.found === false ? `주문 조회: ${e.target} — 주문 내역에 없음` : `주문 조회: ${e.target} (${e.status})`)
+      : `정책 확인: ${e.key} → ${e.target}` + (e.score != null ? ` (유사도 ${e.score}, ${e.method})` : ''))
+      + (e.retries ? ' (재시도 성공)' : ''),
+  PolicyMiss: e => `정책 유사도 부족: ${e.key} (최고 후보 ${e.best ?? '-'}, ${e.score ?? '-'})`,
+  TaskFailed: e => `조회 실패: ${e.target} — 나머지 결과로 계속 진행`,
+  ReplanCheck: e => e.is_sufficient
+      ? (e.forced ? `재검색 한도 도달 → 확보된 정보로 진행 (미확보: ${e.missing.join(', ')})` : null)
+      : `정책 문서 찾기: ${(e.missing || []).join(', ')} (${e.reason ?? '정보 부족'})`,
+  DraftWritten: e => `답변 작성 (시도 ${e.attempt})`,
+  Validation: e => e.verdict === '안전 답변 대체'
+      ? `검수 ${e.attempt}회 반려 → 정확한 기준을 확인하지 못해 안전한 기본 답변으로 대체`
+      : e.verdict.startsWith('합격')
+      ? (e.verdict === '합격' ? '검수 통과' : '검수 최대 시도 도달 → 통과 처리')
+      : `검수 반려 (${Object.entries(e.checks || {}).filter(([, ok]) => !ok)
+            .map(([k]) => CHECK_NAMES[k] || k).join(', ') || '기준 미달'}) → 다시 작성`,
+  Finalize: e => e.served_by ? `답변 완료 (응답: ${e.served_by})` : '답변 완료',
+};
+
+createApp({
+  setup() {
+    const customer = ref({});
+    const asOf = ref('');
+    const products = ref([]);
+    const orders = ref([]);
+    const loadError = ref(false);
+    const openTracking = reactive({});
+
+    const chatOpen = ref(false);
+    const backendLabel = ref('');
+    const log = ref([]);
+    const input = ref('');
+    const sending = ref(false);
+    const logEl = ref(null);
+    const inputEl = ref(null);
+    const quickQuestions = ['택배가 안 와요', '반품하고 싶어요', '환불 언제 돼요?', '배송지 바꿀 수 있나요?'];
+    const thread = 't-shop-' + Math.random().toString(36).slice(2, 8);   // 페이지마다 새 대화
+    let nextId = 0;
+
+    const won = n => Number(n).toLocaleString('ko-KR') + '원';
+
+    // ── 화면 데이터: 백엔드 /api/shop/* (목업 JSON) ──
+    onMounted(async () => {
+      try {
+        const [c, p, o] = await Promise.all(['customer', 'products', 'orders']
+          .map(path => fetch(`/api/shop/${path}`).then(r => { if (!r.ok) throw r; return r.json(); })));
+        customer.value = c;
+        products.value = p.products;
+        orders.value = o.orders;
+        asOf.value = o.as_of;
+      } catch { loadError.value = true; }
+      fetch('/health').then(r => r.json()).then(h => {
+        backendLabel.value = `${h.llm_backend} · ${h.fast_llm} / ${h.quality_llm} · MCP ${h.mcp_transport}`;
+      }).catch(() => { backendLabel.value = '백엔드 연결 안 됨'; });
+    });
+
+    function toggle(id) { openTracking[id] = !openTracking[id]; }
+
+    async function focusInput() {
+      await nextTick();
+      inputEl.value?.focus();
+    }
+
+    function openChat(prefill) {
+      chatOpen.value = true;
+      if (prefill) input.value = prefill;
+      focusInput();
+      scrollToBottom();
+    }
+
+    function askAbout(order) { openChat(`${order.order_id} 주문 문의드려요. `); }
+
+    async function scrollToBottom() {
+      await nextTick();
+      if (logEl.value) logEl.value.scrollTop = logEl.value.scrollHeight;
+    }
+
+    // ── 챗봇: /chat/stream (SSE) ──
+    function send(text) {
+      text = (text || '').trim();
+      if (!text || sending.value) return;
+
+      log.value.push({ id: nextId++, kind: 'user', text });
+      input.value = '';
+      sending.value = true;
+      const stepsItem = reactive({ id: nextId++, kind: 'steps', steps: [], done: false, open: true });
+      log.value.push(stepsItem);
+      scrollToBottom();
+
+      const url = `/chat/stream?message=${encodeURIComponent(text)}&thread_id=${encodeURIComponent(thread)}`;
+      const es = new EventSource(url);
+      let streamItem = null;
+      let streamAttempt = null;   // validate가 반려해 재작성(attempt 증가)하면 새 말풍선으로 끊는다
+
+      const finish = () => {
+        es.close();
+        sending.value = false;
+        stepsItem.done = true;
+        stepsItem.open = false;   // 답이 나오면 처리 과정은 접어 둔다 (눌러서 다시 펼칠 수 있음)
+        scrollToBottom();
+      };
+
+      es.onmessage = (event) => {
+        if (event.data === '[DONE]') { finish(); return; }
+        let e;
+        try { e = JSON.parse(event.data); } catch { return; }
+
+        if (e.type === 'AnswerToken') {
+          if (!streamItem || streamAttempt !== e.attempt) {
+            if (streamItem) streamItem.rejected = true;   // 이전 초안은 검수에서 반려된 것
+            streamItem = reactive({ id: nextId++, kind: 'agent', text: '', rejected: false });
+            log.value.push(streamItem);
+            streamAttempt = e.attempt;
+          }
+          streamItem.text += e.delta;
+          scrollToBottom();
+          return;
+        }
+
+        if (e.type === 'FinalAnswer') {
+          if (!streamItem) {
+            streamItem = reactive({ id: nextId++, kind: 'agent', text: '', rejected: false });
+            log.value.push(streamItem);
+          }
+          streamItem.text = e.reply;   // 토큰 합산 결과와 서버의 최종 텍스트를 일치시킨다
+          if (e.prompt) log.value.push({ id: nextId++, kind: 'prompt', text: e.prompt });
+          streamItem = null;
+          streamAttempt = null;
+          scrollToBottom();
+          return;
+        }
+
+        const fn = STEP_LABELS[e.type];
+        const label = fn && fn(e);
+        if (label) { stepsItem.steps.push(label); scrollToBottom(); }
+      };
+
+      es.onerror = () => {
+        if (!stepsItem.done && !log.value.some(i => i.kind === 'agent' && i.id > stepsItem.id)) {
+          log.value.push({ id: nextId++, kind: 'agent', text: '연결이 끊겼어요. 잠시 후 다시 시도해 주세요.' });
+        }
+        finish();
+      };
+    }
+
+    window.addEventListener('keydown', e => { if (e.key === 'Escape') chatOpen.value = false; });
+
+    return { customer, asOf, products, orders, loadError, openTracking, chatOpen, backendLabel,
+             log, input, sending, logEl, inputEl, quickQuestions,
+             won, toggle, openChat, askAbout, send };
+  },
+}).mount('#app');
+</script>
+</body>
+</html>

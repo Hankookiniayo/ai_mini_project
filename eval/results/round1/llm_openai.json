@@ -1,0 +1,342 @@
+{
+  "label": "llm_openai",
+  "server": {
+    "status": "ok",
+    "instance_id": 4540592016,
+    "creation_count": 1,
+    "supervisor_version": "v2",
+    "llm_backend": "openai",
+    "fast_llm": "openai:gpt-4o-mini",
+    "quality_llm": "openai:gpt-4o",
+    "mcp_transport": "http"
+  },
+  "summary": {
+    "route_acc": 1.0,
+    "order_recall": 0.8,
+    "order_precision": 0.846,
+    "policy_recall": 0.833,
+    "grounded": 1.0,
+    "value_coverage": 0.846,
+    "memory_ok": 1.0,
+    "validation_tries": 1.462,
+    "latency_s": 4.456,
+    "cost_usd": 0.004579
+  },
+  "cases": [
+    {
+      "id": "s01",
+      "query": "택배가 3일째 안 와요",
+      "reply": "1) 주문 확인: 주문번호 ORD-1004의 상태는 배송지연입니다. 주문일은 2026-10-14이며, 결제 금액은 89,000원입니다. 도착 예정일은 2026-10-17이었으나, 현재 3일 지연되고 있습니다.\n\n2) 정책 안내: 도착 예정일보다 2일 이상 늦어지면 배송 지연으로 간주되어 적립금 2,000원이 지급됩니다. 또한, 마지막 이동 기록 이후 3일 이상 변화가 없으므로 상담 접수 시 택배사에 위치 확인을 요청할 수 있습니다.\n\n3) 다음 단계: 고객님께서는 마이페이지 > 주문 내역 또는 고객센터를 통해 상담을 접수하여 택배사의 위치 확인을 요청하실 수 있습니다.",
+      "route": "order",
+      "looked_up_orders": [
+        "ORD-1004"
+      ],
+      "fetched_policies": [
+        "delivery-delay"
+      ],
+      "route_acc": 1.0,
+      "order_recall": 1.0,
+      "order_precision": 1.0,
+      "policy_recall": 1.0,
+      "grounded": 1.0,
+      "value_coverage": 1.0,
+      "memory_ok": null,
+      "validation_tries": 1,
+      "latency_s": 4.8,
+      "cost_usd": 0.004543
+    },
+    {
+      "id": "s02",
+      "query": "ORD-1005 바지 사이즈가 안 맞는데 반품돼요?",
+      "reply": "1) 주문 확인: 주문번호 ORD-1005는 2026-10-13에 배송 완료되었습니다. 주문일은 2026-10-10이며, 결제 금액은 65,800원입니다.\n\n2) 정책 안내: 반품은 상품 수령일로부터 7일 이내에 신청할 수 있으며, 단순 변심의 경우 왕복 배송비 6,000원을 고객이 부담합니다. 반품 신청 마감일은 2026-10-20입니다.\n\n3) 다음 단계: 반품을 원하시면 마이페이지 > 주문 내역에서 반품 신청을 진행해 주세요.",
+      "route": "order",
+      "looked_up_orders": [
+        "ORD-1005"
+      ],
+      "fetched_policies": [
+        "return-exchange",
+        "size-exchange"
+      ],
+      "route_acc": 1.0,
+      "order_recall": 1.0,
+      "order_precision": 1.0,
+      "policy_recall": 1.0,
+      "grounded": 1.0,
+      "value_coverage": 1.0,
+      "memory_ok": null,
+      "validation_tries": 1,
+      "latency_s": 4.24,
+      "cost_usd": 0.005261
+    },
+    {
+      "id": "s03",
+      "query": "환불 언제 돼요?",
+      "reply": "1) 주문 확인: 환불 진행 상황을 확인하기 위해 주문번호가 필요합니다. 주문번호를 알려주시면 더 정확한 안내가 가능합니다.\n\n2) 정책 안내: 반품 상품이 물류센터에 입고된 후 검수를 진행하며, 검수 완료 후 3영업일 이내에 환불이 처리됩니다. 신용카드 결제의 경우, 카드사 사정에 따라 승인 취소가 실제 반영되기까지 3~5영업일이 추가로 소요될 수 있습니다.\n\n3) 다음 단계: 환불 상태를 확인하시려면 마이페이지 > 주문 내역에서 확인하시거나 고객센터에 문의해 주세요.",
+      "route": "order",
+      "looked_up_orders": [],
+      "fetched_policies": [
+        "refund"
+      ],
+      "route_acc": 1.0,
+      "order_recall": 0.0,
+      "order_precision": 0.0,
+      "policy_recall": 1.0,
+      "grounded": 1.0,
+      "value_coverage": 0.5,
+      "memory_ok": null,
+      "validation_tries": 1,
+      "latency_s": 4.02,
+      "cost_usd": 0.002974
+    },
+    {
+      "id": "s04",
+      "query": "이어폰 언제 와요?",
+      "reply": "1) 주문 확인: 고객님의 주문번호 ORD-1003은 현재 배송 중입니다. 주문일은 2026-10-17이며, 결제 금액은 69,000원입니다. 도착 예정일은 오늘, 2026-10-20입니다.\n\n2) 정책 안내: 상품은 출고 후 보통 1~3영업일 안에 도착합니다. 배송 완료로 표시됐는데 상품을 받지 못했다면 48시간 이내에 상담으로 알려 주세요.\n\n3) 다음 단계: 현재 배송이 진행 중이므로, 마이페이지에서 배송 상태를 계속 확인해 주시기 바랍니다. 만약 배송 완료로 표시되었으나 상품을 받지 못하셨다면 고객센터에 문의해 주세요.",
+      "route": "order",
+      "looked_up_orders": [
+        "ORD-1003"
+      ],
+      "fetched_policies": [
+        "address-change",
+        "tracking-guide"
+      ],
+      "route_acc": 1.0,
+      "order_recall": 1.0,
+      "order_precision": 1.0,
+      "policy_recall": 1.0,
+      "grounded": 1.0,
+      "value_coverage": 1.0,
+      "memory_ok": null,
+      "validation_tries": 1,
+      "latency_s": 4.21,
+      "cost_usd": 0.004557
+    },
+    {
+      "id": "s05",
+      "query": "가디건 배송지를 회사로 바꾸고 싶어요",
+      "reply": "1) 주문 확인: 배송지 변경을 원하시는 가디건의 주문번호를 확인할 수 없습니다. 주문번호를 알려주시면 더 정확한 안내가 가능합니다.\n\n2) 정책 안내: 배송이 이미 시작된 경우 배송지 변경은 불가능합니다. 출고 전 상태라면 변경이 가능할 수 있습니다.\n\n3) 다음 단계: 마이페이지 > 주문 내역에서 배송 상태를 확인하시고, 출고 전이라면 고객센터에 문의하여 배송지 변경을 요청해 주세요.",
+      "route": "order",
+      "looked_up_orders": [],
+      "fetched_policies": [
+        "delivery-delay"
+      ],
+      "route_acc": 1.0,
+      "order_recall": 0.0,
+      "order_precision": 0.0,
+      "policy_recall": 0.0,
+      "grounded": 1.0,
+      "value_coverage": 0.0,
+      "memory_ok": null,
+      "validation_tries": 1,
+      "latency_s": 3.59,
+      "cost_usd": 0.002856
+    },
+    {
+      "id": "s06",
+      "query": "담요랑 텀블러 주문 취소할 수 있나요?",
+      "reply": "1) 주문 확인: 주문번호 ORD-1001은 현재 '결제완료' 상태입니다. 주문일시는 2026-10-20이며, 결제 금액은 43,400원입니다.\n\n2) 정책 안내: 결제완료 상태에서는 마이페이지에서 전체 또는 일부 상품을 바로 취소할 수 있으며, 즉시 환불됩니다.\n\n3) 다음 단계: 주문 취소를 원하시면 마이페이지 > 주문 내역에서 직접 취소 신청을 진행해 주세요.",
+      "route": "order",
+      "looked_up_orders": [
+        "ORD-1001"
+      ],
+      "fetched_policies": [
+        "order-cancel"
+      ],
+      "route_acc": 1.0,
+      "order_recall": 1.0,
+      "order_precision": 1.0,
+      "policy_recall": 1.0,
+      "grounded": 1.0,
+      "value_coverage": 1.0,
+      "memory_ok": null,
+      "validation_tries": 1,
+      "latency_s": 4.1,
+      "cost_usd": 0.00352
+    },
+    {
+      "id": "s07",
+      "query": "데님 팬츠 박음질이 다 터져서 왔어요",
+      "reply": "1) 주문 확인: 고객님께서 주문하신 와이드 데님 팬츠(28/라이트블루)는 주문번호 ORD-1005로 2026-10-10에 주문되어 2026-10-13에 배송 완료되었습니다. 결제 금액은 45,900원입니다.\n\n2) 정책 안내: 반품 및 교환 신청은 수령 후 7일 이내에 가능합니다. 고객님의 경우, 반품·교환 신청 마감일은 2026-10-20입니다.\n\n3) 다음 단계: 제품의 박음질 문제로 인한 반품 또는 교환을 원하실 경우, 마이페이지 > 주문 내역에서 신청하시거나 고객센터를 통해 접수해 주시기 바랍니다.",
+      "route": "order",
+      "looked_up_orders": [
+        "ORD-1005"
+      ],
+      "fetched_policies": [
+        "delivery-delay"
+      ],
+      "route_acc": 1.0,
+      "order_recall": 1.0,
+      "order_precision": 1.0,
+      "policy_recall": 0.0,
+      "grounded": 1.0,
+      "value_coverage": 0.5,
+      "memory_ok": null,
+      "validation_tries": 1,
+      "latency_s": 4.96,
+      "cost_usd": 0.004661
+    },
+    {
+      "id": "s08",
+      "query": "반품 기간이 어떻게 돼요?",
+      "reply": "2) 정책 안내: 교환·반품은 상품 수령일로부터 7일 이내에 신청할 수 있습니다. 단순 변심의 경우 왕복 배송비 6,000원을 고객이 부담하며, 상품 하자나 오배송의 경우 배송비는 판매자가 부담합니다. 착용·세탁 흔적이 있거나 택을 제거한 상품, 포장을 훼손한 디지털 상품은 반품이 제한됩니다.\n\n3) 다음 단계: 반품 신청은 마이페이지 > 주문 내역 > 반품 신청에서 직접 진행하실 수 있습니다.",
+      "route": "order",
+      "looked_up_orders": [],
+      "fetched_policies": [
+        "refund",
+        "return-exchange"
+      ],
+      "route_acc": 1.0,
+      "order_recall": null,
+      "order_precision": 1.0,
+      "policy_recall": 1.0,
+      "grounded": 1.0,
+      "value_coverage": 1.0,
+      "memory_ok": null,
+      "validation_tries": 3,
+      "latency_s": 6.03,
+      "cost_usd": 0.011604
+    },
+    {
+      "id": "s09",
+      "query": "ORD-9999 주문 어디쯤 왔어요?",
+      "reply": "1) 주문 확인: 죄송하지만, 주문번호 ORD-9999는 조회되지 않았습니다. 주문번호를 다시 확인해 주세요.\n\n3) 다음 단계: 주문번호를 확인하신 후, 마이페이지 > 주문 내역에서 다시 조회해 보시거나 고객센터에 문의해 주세요.",
+      "route": "order",
+      "looked_up_orders": [
+        "ORD-9999"
+      ],
+      "fetched_policies": [],
+      "route_acc": 1.0,
+      "order_recall": 1.0,
+      "order_precision": 1.0,
+      "policy_recall": null,
+      "grounded": 1.0,
+      "value_coverage": 1.0,
+      "memory_ok": null,
+      "validation_tries": 1,
+      "latency_s": 4.56,
+      "cost_usd": 0.001824
+    },
+    {
+      "id": "s10",
+      "query": "ORD-1004 배송 지연되면 보상 있나요?",
+      "reply": "1) 주문 확인: 주문번호 ORD-1004는 현재 배송 지연 상태입니다. 주문일은 2026-10-14이며, 결제 금액은 89,000원입니다. 도착 예정일은 2026-10-17이었으나, 현재 3일 지연되었습니다.\n\n2) 정책 안내: 도착 예정일보다 2일 이상 늦어지면 배송 지연으로 보고, 지연 보상으로 적립금 2,000원이 지급됩니다. 또한, 마지막 이동 기록 이후 3일 이상 변화가 없으면 상담 접수 시 택배사에 위치 확인을 요청합니다.\n\n3) 다음 단계: 고객님께서는 마이페이지 > 주문 내역 또는 고객센터를 통해 상담을 접수하여 택배사의 위치 확인을 요청하실 수 있습니다.",
+      "route": "order",
+      "looked_up_orders": [
+        "ORD-1004"
+      ],
+      "fetched_policies": [
+        "delivery-delay"
+      ],
+      "route_acc": 1.0,
+      "order_recall": 1.0,
+      "order_precision": 1.0,
+      "policy_recall": 1.0,
+      "grounded": 1.0,
+      "value_coverage": 1.0,
+      "memory_ok": null,
+      "validation_tries": 1,
+      "latency_s": 4.51,
+      "cost_usd": 0.00456
+    },
+    {
+      "id": "s11",
+      "query": "신발이랑 이어폰 둘 다 아직 안 왔는데 같은 택배사 문제인가요?",
+      "reply": "1) 주문 확인:\n   - 주문번호 ORD-1003: 무선 이어폰 버즈라이트(화이트)는 현재 배송 중이며, 2026-10-20에 도착 예정입니다. 마지막 배송 기록은 2026-10-20 성동 대리점에서 배송 출발입니다.\n   - 주문번호 ORD-1004: 에어라이트 러닝화는 배송 지연 상태입니다. 도착 예정일은 2026-10-17이었으며, 마지막 기록은 2026-10-17 대전 터미널 도착입니다.\n\n2) 정책 안내:\n   - 배송 지연이 2일 이상일 경우 적립금 2,000원이 지급됩니다.\n   - 마지막 이동 기록 이후 3일 이상 변화가 없으면 상담 접수 시 택배사에 위치 확인을 요청합니다.\n\n3) 다음 단계:\n   - 주문번호 ORD-1004의 경우, 배송 지연이 3일 이상이므로 고객센터에 문의하여 택배사에 위치 확인을 요청할 수 있습니다. 마이페이지 > 주문 내역에서 상태를 확인하거나 고객센터에 문의해 주세요.",
+      "route": "order",
+      "looked_up_orders": [
+        "ORD-1003",
+        "ORD-1004"
+      ],
+      "fetched_policies": [
+        "delivery-delay",
+        "tracking-guide"
+      ],
+      "route_acc": 1.0,
+      "order_recall": 1.0,
+      "order_precision": 1.0,
+      "policy_recall": 1.0,
+      "grounded": 1.0,
+      "value_coverage": 1.0,
+      "memory_ok": null,
+      "validation_tries": 1,
+      "latency_s": 5.3,
+      "cost_usd": 0.006682
+    },
+    {
+      "id": "s12",
+      "query": "부분 취소하면 배송비가 붙나요?",
+      "reply": "1) 주문 확인: 현재 고객님의 주문 상태를 확인할 수 없습니다. 주문번호를 제공해 주시면 더 정확한 안내가 가능합니다.\n\n2) 정책 안내: 부분 취소 후 남은 결제 금액이 무료배송 기준인 30,000원 미만이 되면 배송비 3,000원을 차감하고 환불됩니다.\n\n3) 다음 단계: 부분 취소를 원하시면 마이페이지 > 주문 내역에서 직접 신청해 주세요. 추가 문의 사항이 있으면 고객센터로 연락해 주세요.",
+      "route": "order",
+      "looked_up_orders": [],
+      "fetched_policies": [
+        "order-cancel"
+      ],
+      "route_acc": 1.0,
+      "order_recall": null,
+      "order_precision": 1.0,
+      "policy_recall": 1.0,
+      "grounded": 1.0,
+      "value_coverage": 1.0,
+      "memory_ok": null,
+      "validation_tries": 3,
+      "latency_s": 5.57,
+      "cost_usd": 0.007855
+    },
+    {
+      "id": "s13",
+      "query": "사이즈 교환은 몇 번까지 무료예요?",
+      "reply": "2) 정책 안내: 사이즈 교환은 상품 수령일로부터 7일 이내에 신청할 수 있으며, 1회에 한해 가능합니다. 왕복 배송비 6,000원은 고객이 부담합니다.\n\n3) 다음 단계: 사이즈 교환을 원하시면 마이페이지 > 주문 내역에서 신청하시거나 고객센터에 문의해 주세요. 원하는 사이즈의 재고가 없을 경우, 반품 후 재주문을 안내받을 수 있습니다.",
+      "route": "order",
+      "looked_up_orders": [],
+      "fetched_policies": [
+        "size-exchange"
+      ],
+      "route_acc": 1.0,
+      "order_recall": null,
+      "order_precision": 1.0,
+      "policy_recall": 1.0,
+      "grounded": 1.0,
+      "value_coverage": 1.0,
+      "memory_ok": null,
+      "validation_tries": 3,
+      "latency_s": 5.48,
+      "cost_usd": 0.007641
+    },
+    {
+      "id": "s14",
+      "query": "안녕, 너는 누구야?",
+      "reply": "안녕하세요! 저는 '솔방울마켓'의 친절한 상담 챗봇입니다. 주문, 배송, 반품 문의를 도와드릴 수 있어요. 무엇을 도와드릴까요?",
+      "route": "chat",
+      "looked_up_orders": [],
+      "fetched_policies": [],
+      "route_acc": 1.0,
+      "order_recall": null,
+      "order_precision": null,
+      "policy_recall": null,
+      "grounded": null,
+      "value_coverage": null,
+      "memory_ok": null,
+      "validation_tries": null,
+      "latency_s": 1.81,
+      "cost_usd": 4.7e-05
+    },
+    {
+      "id": "s15",
+      "query": "제 이름이 뭐였죠?",
+      "reply": "민수님, 당신의 이름은 민수입니다! 다른 문의사항이 있으신가요?",
+      "route": "chat",
+      "looked_up_orders": [],
+      "fetched_policies": [],
+      "route_acc": 1.0,
+      "order_recall": null,
+      "order_precision": null,
+      "policy_recall": null,
+      "grounded": null,
+      "value_coverage": null,
+      "memory_ok": 1.0,
+      "validation_tries": null,
+      "latency_s": 3.66,
+      "cost_usd": 9.4e-05
+    }
+  ]
+}

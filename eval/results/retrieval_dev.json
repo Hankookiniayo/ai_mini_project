@@ -1,0 +1,101 @@
+{
+  "keyword": {
+    "threshold": 0.09,
+    "accuracy": 0.667,
+    "positive_hit": "15/24",
+    "negative_reject": "5/6",
+    "top1": "14/24",
+    "plateau": [
+      0.05,
+      0.12
+    ]
+  },
+  "vector-small": {
+    "threshold": 0.26,
+    "accuracy": 0.567,
+    "positive_hit": "15/24",
+    "negative_reject": "2/6",
+    "top1": "14/24",
+    "plateau": [
+      0.25,
+      0.27
+    ]
+  },
+  "vector-large": {
+    "threshold": 0.26,
+    "accuracy": 0.733,
+    "positive_hit": "19/24",
+    "negative_reject": "3/6",
+    "top1": "20/24",
+    "plateau": [
+      0.17,
+      0.28
+    ]
+  },
+  "hybrid-small (w=0.3)": {
+    "threshold": 0.14,
+    "accuracy": 0.7,
+    "positive_hit": "16/24",
+    "negative_reject": "5/6",
+    "top1": "17/24",
+    "plateau": [
+      0.11,
+      0.17
+    ]
+  },
+  "hybrid-small (w=0.5)": {
+    "threshold": 0.19,
+    "accuracy": 0.7,
+    "positive_hit": "17/24",
+    "negative_reject": "4/6",
+    "top1": "17/24",
+    "plateau": [
+      0.16,
+      0.2
+    ]
+  },
+  "hybrid-small (w=0.7)": {
+    "threshold": 0.18,
+    "accuracy": 0.733,
+    "positive_hit": "20/24",
+    "negative_reject": "2/6",
+    "top1": "17/24",
+    "plateau": [
+      0.17,
+      0.19
+    ]
+  },
+  "hybrid-large (w=0.3)": {
+    "threshold": 0.11,
+    "accuracy": 0.767,
+    "positive_hit": "18/24",
+    "negative_reject": "5/6",
+    "top1": "19/24",
+    "plateau": [
+      0.1,
+      0.11
+    ]
+  },
+  "hybrid-large (w=0.5)": {
+    "threshold": 0.15,
+    "accuracy": 0.8,
+    "positive_hit": "21/24",
+    "negative_reject": "3/6",
+    "top1": "20/24",
+    "plateau": [
+      0.12,
+      0.18
+    ]
+  },
+  "hybrid-large (w=0.7)": {
+    "threshold": 0.18,
+    "accuracy": 0.8,
+    "positive_hit": "21/24",
+    "negative_reject": "3/6",
+    "top1": "20/24",
+    "plateau": [
+      0.17,
+      0.19
+    ]
+  }
+}

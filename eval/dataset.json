@@ -1,0 +1,388 @@
+{
+ "description": "목업 데이터(data/shop, 기준일 2026-10-20) 기준 상담 평가셋. expected_orders: 조회해야 할 주문번호. expected_policies: 정책 그룹 목록(그룹마다 하나라도 가져오면 적중). expected_values: 답변에 들어가야 할 값 그룹 목록(그룹 안의 표기 중 하나만 있으면 적중, 금액의 쉼표는 무시). paraphrase=true 문항(s16~s22)은 정책 문서의 키워드를 일부러 피해서 쓴 '바꿔 말한' 질문으로, 키워드 검색과 RAG의 차이를 보기 위한 것이다. 1차 측정 후 추가했고, 이 문항들을 보고 정책·임계치를 조정하지 않았다. s23~s25는 상품 가격 문의(화면과 같은 가격으로 답하는지) — 가격을 지어내던 문제를 발견한 뒤 추가했다.",
+ "cases": [
+  {
+   "id": "s01",
+   "query": "택배가 3일째 안 와요",
+   "expected_route": "order",
+   "expected_orders": [
+    "ORD-1004"
+   ],
+   "expected_policies": [
+    [
+     "delivery-delay"
+    ]
+   ],
+   "expected_values": [
+    [
+     "ORD-1004"
+    ],
+    [
+     "10월 17일",
+     "2026-10-17",
+     "10/17",
+     "3일"
+    ]
+   ]
+  },
+  {
+   "id": "s02",
+   "query": "ORD-1005 바지 사이즈가 안 맞는데 반품돼요?",
+   "expected_route": "order",
+   "expected_orders": [
+    "ORD-1005"
+   ],
+   "expected_policies": [
+    [
+     "return-exchange",
+     "size-exchange"
+    ]
+   ],
+   "expected_values": [
+    [
+     "ORD-1005"
+    ],
+    [
+     "7일"
+    ],
+    [
+     "6000원"
+    ]
+   ]
+  },
+  {
+   "id": "s03",
+   "query": "환불 언제 돼요?",
+   "expected_route": "order",
+   "expected_orders": [
+    "ORD-1006"
+   ],
+   "expected_policies": [
+    [
+     "refund"
+    ]
+   ],
+   "expected_values": [
+    [
+     "ORD-1006"
+    ],
+    [
+     "3영업일"
+    ]
+   ]
+  },
+  {
+   "id": "s04",
+   "query": "이어폰 언제 와요?",
+   "expected_route": "order",
+   "expected_orders": [
+    "ORD-1003"
+   ],
+   "expected_policies": [
+    [
+     "tracking-guide",
+     "delivery-delay"
+    ]
+   ],
+   "expected_values": [
+    [
+     "ORD-1003"
+    ]
+   ]
+  },
+  {
+   "id": "s05",
+   "query": "가디건 배송지를 회사로 바꾸고 싶어요",
+   "expected_route": "order",
+   "expected_orders": [
+    "ORD-1002"
+   ],
+   "expected_policies": [
+    [
+     "address-change"
+    ]
+   ],
+   "expected_values": [
+    [
+     "ORD-1002"
+    ]
+   ]
+  },
+  {
+   "id": "s06",
+   "query": "담요랑 텀블러 주문 취소할 수 있나요?",
+   "expected_route": "order",
+   "expected_orders": [
+    "ORD-1001"
+   ],
+   "expected_policies": [
+    [
+     "order-cancel"
+    ]
+   ],
+   "expected_values": [
+    [
+     "ORD-1001"
+    ]
+   ]
+  },
+  {
+   "id": "s07",
+   "query": "데님 팬츠 박음질이 다 터져서 왔어요",
+   "expected_route": "order",
+   "expected_orders": [
+    "ORD-1005"
+   ],
+   "expected_policies": [
+    [
+     "defective"
+    ]
+   ],
+   "expected_values": [
+    [
+     "ORD-1005"
+    ],
+    [
+     "30일"
+    ]
+   ]
+  },
+  {
+   "id": "s08",
+   "query": "반품 기간이 어떻게 돼요?",
+   "expected_route": "order",
+   "expected_orders": [],
+   "expected_policies": [
+    [
+     "return-exchange"
+    ]
+   ],
+   "expected_values": [
+    [
+     "7일"
+    ]
+   ]
+  },
+  {
+   "id": "s09",
+   "query": "ORD-9999 주문 어디쯤 왔어요?",
+   "expected_route": "order",
+   "expected_orders": [
+    "ORD-9999"
+   ],
+   "expected_values": [
+    [
+     "확인되지",
+     "찾을 수 없",
+     "없는 주문",
+     "조회되지"
+    ]
+   ]
+  },
+  {
+   "id": "s10",
+   "query": "ORD-1004 배송 지연되면 보상 있나요?",
+   "expected_route": "order",
+   "expected_orders": [
+    "ORD-1004"
+   ],
+   "expected_policies": [
+    [
+     "delivery-delay"
+    ]
+   ],
+   "expected_values": [
+    [
+     "ORD-1004"
+    ],
+    [
+     "2000원"
+    ]
+   ]
+  },
+  {
+   "id": "s11",
+   "query": "신발이랑 이어폰 둘 다 아직 안 왔는데 같은 택배사 문제인가요?",
+   "expected_route": "order",
+   "expected_orders": [
+    "ORD-1004",
+    "ORD-1003"
+   ],
+   "expected_policies": [
+    [
+     "delivery-delay"
+    ]
+   ],
+   "expected_values": [
+    [
+     "ORD-1004"
+    ],
+    [
+     "ORD-1003"
+    ]
+   ]
+  },
+  {
+   "id": "s12",
+   "query": "부분 취소하면 배송비가 붙나요?",
+   "expected_route": "order",
+   "expected_orders": [],
+   "expected_policies": [
+    [
+     "order-cancel"
+    ]
+   ],
+   "expected_values": [
+    [
+     "3000원"
+    ]
+   ]
+  },
+  {
+   "id": "s13",
+   "query": "사이즈 교환은 몇 번까지 무료예요?",
+   "expected_route": "order",
+   "expected_orders": [],
+   "expected_policies": [
+    [
+     "size-exchange"
+    ]
+   ],
+   "expected_values": [
+    [
+     "6000원"
+    ]
+   ]
+  },
+  {
+   "id": "s14",
+   "query": "안녕, 너는 누구야?",
+   "expected_route": "chat"
+  },
+  {
+   "id": "s15",
+   "turns": [
+    "제 이름은 민수입니다",
+    "제 이름이 뭐였죠?"
+   ],
+   "expected_route": "chat",
+   "expected_reply_contains": "민수"
+  },
+  {
+   "id": "s16",
+   "query": "돈은 언제 돌려받을 수 있나요?",
+   "expected_route": "order",
+   "expected_policies": [
+    [
+     "refund"
+    ]
+   ],
+   "paraphrase": true
+  },
+  {
+   "id": "s17",
+   "query": "집 말고 회사로 받아볼 수 있을까요?",
+   "expected_route": "order",
+   "expected_policies": [
+    [
+     "address-change"
+    ]
+   ],
+   "paraphrase": true
+  },
+  {
+   "id": "s18",
+   "query": "결제한 거 없던 일로 하고 싶어요",
+   "expected_route": "order",
+   "expected_policies": [
+    [
+     "order-cancel"
+    ]
+   ],
+   "paraphrase": true
+  },
+  {
+   "id": "s19",
+   "query": "좀 더 넉넉한 걸로 바꿔 받고 싶어요",
+   "expected_route": "order",
+   "expected_policies": [
+    [
+     "size-exchange",
+     "return-exchange"
+    ]
+   ],
+   "paraphrase": true
+  },
+  {
+   "id": "s20",
+   "query": "조회해보면 며칠째 같은 터미널에만 머물러 있어요",
+   "expected_route": "order",
+   "expected_policies": [
+    [
+     "delivery-delay",
+     "tracking-guide"
+    ]
+   ],
+   "paraphrase": true
+  },
+  {
+   "id": "s21",
+   "query": "신발 밑창이 떨어진 채로 왔어요",
+   "expected_route": "order",
+   "expected_policies": [
+    [
+     "defective"
+    ]
+   ],
+   "paraphrase": true
+  },
+  {
+   "id": "s22",
+   "query": "받은 물건이 제가 고른 거랑 달라요",
+   "expected_route": "order",
+   "expected_policies": [
+    [
+     "defective"
+    ]
+   ],
+   "paraphrase": true
+  },
+  {
+   "id": "s23",
+   "query": "극세사 담요 얼마에요?",
+   "expected_route": "order",
+   "expected_orders": [],
+   "expected_values": [
+    [
+     "24900원"
+    ]
+   ]
+  },
+  {
+   "id": "s24",
+   "query": "핸드크림 가격 알려주세요",
+   "expected_route": "order",
+   "expected_orders": [],
+   "expected_values": [
+    [
+     "15900원"
+    ]
+   ]
+  },
+  {
+   "id": "s25",
+   "query": "노트북 얼마에요?",
+   "expected_route": "order",
+   "expected_orders": [],
+   "expected_values": [
+    [
+     "찾지 못",
+     "없는 상품",
+     "판매하지 않",
+     "확인되지",
+     "찾을 수 없"
+    ]
+   ]
+  }
+ ]
+}

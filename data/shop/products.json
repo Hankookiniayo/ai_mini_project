@@ -1,0 +1,24 @@
+{
+  "products": [
+    {"product_id": "P01", "name": "베이직 코튼 반팔 티셔츠", "category": "의류", "price": 19900,
+     "options": {"size": ["S", "M", "L", "XL"], "color": ["화이트", "블랙", "네이비"]}, "emoji": "👕"},
+    {"product_id": "P02", "name": "와이드 데님 팬츠", "category": "의류", "price": 45900,
+     "options": {"size": ["26", "28", "30", "32"], "color": ["라이트블루", "진청"]}, "emoji": "👖"},
+    {"product_id": "P03", "name": "경량 패딩 조끼", "category": "의류", "price": 59000,
+     "options": {"size": ["M", "L", "XL"], "color": ["블랙", "카키"]}, "emoji": "🧥"},
+    {"product_id": "P04", "name": "에어라이트 러닝화", "category": "신발", "price": 89000,
+     "options": {"size": ["240", "250", "260", "270", "280"], "color": ["그레이", "블랙"]}, "emoji": "👟"},
+    {"product_id": "P05", "name": "캔버스 토트백", "category": "가방", "price": 29800,
+     "options": {"color": ["아이보리", "블랙"]}, "emoji": "👜"},
+    {"product_id": "P06", "name": "스테인리스 텀블러 500ml", "category": "리빙", "price": 18500,
+     "options": {"color": ["실버", "민트"]}, "emoji": "🥤"},
+    {"product_id": "P07", "name": "무선 이어폰 버즈라이트", "category": "디지털", "price": 69000,
+     "options": {"color": ["화이트", "블랙"]}, "emoji": "🎧"},
+    {"product_id": "P08", "name": "극세사 담요", "category": "리빙", "price": 24900,
+     "options": {"color": ["베이지", "그레이"]}, "emoji": "🛋️"},
+    {"product_id": "P09", "name": "울 블렌드 니트 가디건", "category": "의류", "price": 52000,
+     "options": {"size": ["S", "M", "L"], "color": ["베이지", "차콜"]}, "emoji": "🧶"},
+    {"product_id": "P10", "name": "핸드크림 3종 세트", "category": "뷰티", "price": 15900,
+     "options": {}, "emoji": "🧴"}
+  ]
+}

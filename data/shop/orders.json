@@ -1,0 +1,136 @@
+{
+  "orders": [
+    {
+      "order_id": "ORD-1001",
+      "ordered_at": "2026-10-20 09:12",
+      "status": "paid",
+      "items": [
+        {"product_id": "P08", "name": "극세사 담요", "option": {"color": "베이지"}, "qty": 1, "price": 24900},
+        {"product_id": "P06", "name": "스테인리스 텀블러 500ml", "option": {"color": "민트"}, "qty": 1, "price": 18500}
+      ],
+      "shipping_fee": 0,
+      "total_amount": 43400,
+      "payment_method": "신용카드",
+      "shipping_address": "서울시 성동구 왕십리로 100, 101동 1203호",
+      "carrier": null,
+      "tracking_no": null,
+      "expected_delivery": "2026-10-23",
+      "delivered_at": null,
+      "tracking": []
+    },
+    {
+      "order_id": "ORD-1002",
+      "ordered_at": "2026-10-19 21:40",
+      "status": "preparing",
+      "items": [
+        {"product_id": "P09", "name": "울 블렌드 니트 가디건", "option": {"size": "M", "color": "베이지"}, "qty": 1, "price": 52000}
+      ],
+      "shipping_fee": 0,
+      "total_amount": 52000,
+      "payment_method": "간편결제",
+      "shipping_address": "서울시 성동구 왕십리로 100, 101동 1203호",
+      "carrier": null,
+      "tracking_no": null,
+      "expected_delivery": "2026-10-22",
+      "delivered_at": null,
+      "tracking": [
+        {"time": "2026-10-20 10:05", "location": "솔방울마켓 물류센터", "status": "상품 준비 시작"}
+      ]
+    },
+    {
+      "order_id": "ORD-1003",
+      "ordered_at": "2026-10-17 14:22",
+      "status": "shipping",
+      "items": [
+        {"product_id": "P07", "name": "무선 이어폰 버즈라이트", "option": {"color": "화이트"}, "qty": 1, "price": 69000}
+      ],
+      "shipping_fee": 0,
+      "total_amount": 69000,
+      "payment_method": "신용카드",
+      "shipping_address": "서울시 성동구 왕십리로 100, 101동 1203호",
+      "carrier": "한빛택배",
+      "tracking_no": "4521-0000-1003",
+      "expected_delivery": "2026-10-20",
+      "delivered_at": null,
+      "tracking": [
+        {"time": "2026-10-18 16:30", "location": "솔방울마켓 물류센터", "status": "집화 완료"},
+        {"time": "2026-10-19 02:10", "location": "옥천 허브", "status": "간선 하차"},
+        {"time": "2026-10-20 08:40", "location": "성동 대리점", "status": "배송 출발"}
+      ]
+    },
+    {
+      "order_id": "ORD-1004",
+      "ordered_at": "2026-10-14 11:03",
+      "status": "delayed",
+      "items": [
+        {"product_id": "P04", "name": "에어라이트 러닝화", "option": {"size": "260", "color": "그레이"}, "qty": 1, "price": 89000}
+      ],
+      "shipping_fee": 0,
+      "total_amount": 89000,
+      "payment_method": "신용카드",
+      "shipping_address": "서울시 성동구 왕십리로 100, 101동 1203호",
+      "carrier": "한빛택배",
+      "tracking_no": "4521-0000-1004",
+      "expected_delivery": "2026-10-17",
+      "delivered_at": null,
+      "tracking": [
+        {"time": "2026-10-15 17:20", "location": "솔방울마켓 물류센터", "status": "집화 완료"},
+        {"time": "2026-10-16 03:45", "location": "옥천 허브", "status": "간선 상차"},
+        {"time": "2026-10-17 10:20", "location": "대전 터미널", "status": "터미널 도착"}
+      ]
+    },
+    {
+      "order_id": "ORD-1005",
+      "ordered_at": "2026-10-10 19:55",
+      "status": "delivered",
+      "items": [
+        {"product_id": "P02", "name": "와이드 데님 팬츠", "option": {"size": "28", "color": "라이트블루"}, "qty": 1, "price": 45900},
+        {"product_id": "P01", "name": "베이직 코튼 반팔 티셔츠", "option": {"size": "L", "color": "화이트"}, "qty": 1, "price": 19900}
+      ],
+      "shipping_fee": 0,
+      "total_amount": 65800,
+      "payment_method": "신용카드",
+      "shipping_address": "서울시 성동구 왕십리로 100, 101동 1203호",
+      "carrier": "한빛택배",
+      "tracking_no": "4521-0000-1005",
+      "expected_delivery": "2026-10-13",
+      "delivered_at": "2026-10-13 15:10",
+      "tracking": [
+        {"time": "2026-10-11 18:00", "location": "솔방울마켓 물류센터", "status": "집화 완료"},
+        {"time": "2026-10-12 04:30", "location": "옥천 허브", "status": "간선 하차"},
+        {"time": "2026-10-13 09:15", "location": "성동 대리점", "status": "배송 출발"},
+        {"time": "2026-10-13 15:10", "location": "고객 문 앞", "status": "배송 완료"}
+      ]
+    },
+    {
+      "order_id": "ORD-1006",
+      "ordered_at": "2026-10-05 13:30",
+      "status": "return_requested",
+      "items": [
+        {"product_id": "P03", "name": "경량 패딩 조끼", "option": {"size": "L", "color": "블랙"}, "qty": 1, "price": 59000}
+      ],
+      "shipping_fee": 0,
+      "total_amount": 59000,
+      "payment_method": "신용카드",
+      "shipping_address": "서울시 성동구 왕십리로 100, 101동 1203호",
+      "carrier": "한빛택배",
+      "tracking_no": "4521-0000-1006",
+      "expected_delivery": "2026-10-08",
+      "delivered_at": "2026-10-08 13:40",
+      "tracking": [
+        {"time": "2026-10-06 17:00", "location": "솔방울마켓 물류센터", "status": "집화 완료"},
+        {"time": "2026-10-08 13:40", "location": "고객 문 앞", "status": "배송 완료"},
+        {"time": "2026-10-14 11:00", "location": "고객 문 앞", "status": "반품 회수 완료"},
+        {"time": "2026-10-16 15:00", "location": "솔방울마켓 물류센터", "status": "반품 입고, 검수 중"}
+      ],
+      "return": {
+        "requested_at": "2026-10-12",
+        "reason": "사이즈가 커서 단순 변심 반품",
+        "pickup_done_at": "2026-10-14",
+        "inspection": "검수 중",
+        "return_shipping_fee": 6000,
+        "expected_refund_amount": 53000
+      }
+    }
+  ]
+}
