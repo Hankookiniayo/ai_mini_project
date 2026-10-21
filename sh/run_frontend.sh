@@ -3,8 +3,9 @@
 # 쇼핑몰 화면(web_shop.html + 우측 하단 상담 챗봇)을 띄우는 스크립트.
 #
 # 별도 npm 빌드 없이 web_demo_server.py + web_shop.html(Vue 3 CDN) 조합이 프론트엔드 역할을
-# 한다 — web_shop.html을 같은 출처(origin)로 띄운 뒤 /api/shop/*(상품·주문 조회)와
+# 한다 — web_shop.html을 같은 출처(origin)로 띄운 뒤 /api/auth/*(목업 로그인), /api/shop/*(상품·주문 조회),
 # /chat/stream(챗봇) 요청을 백엔드 8100으로 프록시해주는 얇은 레이어다(브라우저 CORS 제약 회피).
+# 로그인 세션 쿠키도 같이 중계한다.
 #
 # ⚠️ 먼저 run_agent_hybrid.sh / run_agent_fake.sh 등으로 백엔드(8100)를
 # 띄워둔 상태여야 한다 — 백엔드 없이 이 스크립트만 띄우면 채팅 화면은 열리지만
@@ -51,10 +52,11 @@ cat <<EOF
 
 ################################################################
  프론트엔드가 떠 있습니다 → http://localhost:8600
- (web_shop.html을 띄우고 /api/shop/*·/chat/stream을 백엔드 8100으로 프록시)
+ (web_shop.html을 띄우고 /api/auth/*·/api/shop/*·/chat/stream을 백엔드 8100으로 프록시)
 ################################################################
 
-브라우저에서 http://localhost:8600 접속해 바로 채팅해볼 수 있습니다.
+브라우저에서 http://localhost:8600 접속 → 로그인 창에서 목업회원 버튼을 누르면 바로 로그인됩니다.
+  목업회원 1: 김솔이 (sol / mock1234)   목업회원 2: 박하늘 (haneul / mock5678)
 종료하려면 이 터미널에서 Ctrl+C.
 EOF
 

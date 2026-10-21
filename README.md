@@ -4,6 +4,7 @@
 (SKALA AI Mini Project · 개인 프로젝트 · 상품과 주문은 모두 목업 데이터)
 
 - 질문 속 주문 자동 식별 및 MCP 기반 주문·상품 조회 서비스 분리
+- 주문 데이터는 SQLite 저장소, 목업 로그인으로 회원마다 자기 주문만 조회
 - 키워드+벡터 하이브리드 RAG로 반품·환불·배송 정책 검색
 - 답변 속 금액·날짜·주문번호 검증, 근거 없으면 고객센터 안내로 전환
 - 정답 기반 Before/After 실험과 LangSmith 추적
@@ -24,5 +25,8 @@ bash sh/run_mcp.sh                   # (새 터미널) MCP 서버 :8200
 bash sh/run_agent_hybrid.sh          # (새 터미널) 에이전트 :8100
 bash sh/run_frontend.sh              # (새 터미널) http://localhost:8600
 ```
+
+화면을 열면 로그인 창이 먼저 뜹니다. **목업회원 1**(김솔이 `sol` / `mock1234`) 또는 **목업회원 2**(박하늘 `haneul` / `mock5678`) 버튼을 누르면 바로 로그인됩니다. 두 회원은 주문이 서로 겹치지 않고, 챗봇도 로그인한 회원의 주문만 조회합니다.
+주문 DB(`shop.db`)는 처음 실행할 때 `data/shop/*.json`으로 자동 생성됩니다. 처음 상태로 되돌리려면 `.venv/bin/python scripts/seed_shop_db.py --reset`을 실행합니다.
 
 구조, 구현 내용, Before/After 측정 결과, 한계는 [doc/README.md](doc/README.md)에 정리했습니다.

@@ -28,11 +28,11 @@
 ```mermaid
 flowchart TB
     Browser["브라우저 — web_shop.html<br/>상품 · 내 주문 패널 · 챗봇"] --> Proxy["web_demo_server.py :8600"]
-    Proxy -->|"/api/shop/*"| ShopAPI
+    Proxy -->|"/api/auth/* · /api/shop/*<br/>(세션 쿠키 중계)"| ShopAPI
     Proxy -->|"/chat/stream (SSE)"| API
 
     subgraph Agent["server.py — FastAPI :8100"]
-        ShopAPI["/api/shop/* (화면용 조회)"]
+        ShopAPI["/api/auth/* (목업 로그인)<br/>/api/shop/* (화면용 조회)"]
         API["/chat · /chat/stream"] --> Graph["LangGraph<br/>route → plan → gate → research ⇄ replan_check<br/>→ analysis → write ⇄ validate → finalize"]
         Graph --> LLM["HybridFastLLM<br/>route·plan → gpt-4o-mini<br/>chat → Ollama (꺼져 있으면 OpenAI)<br/>write → gpt-4o"]
     end
@@ -72,6 +72,8 @@ bash sh/run_frontend.sh            # (새 터미널) 쇼핑몰 화면 → http:/
 
 fake LLM은 첫 답변을 일부러 짧게 써서 **검수에서 반려되고 다시 쓰는 모습**을 보여준다.
 
+화면을 열면 로그인 창이 먼저 뜬다. 아이디·비밀번호를 입력하거나, 아래 **목업회원 1**(김솔이 `sol` / `mock1234`)·**목업회원 2**(박하늘 `haneul` / `mock5678`) 버튼을 누르면 바로 로그인된다. 주문 DB(`shop.db`)는 처음 실행할 때 `data/shop/*.json`으로 자동 생성된다(처음 상태로 되돌리기: `.venv/bin/python scripts/seed_shop_db.py --reset`).
+
 ### 1-B. 실제 구성 (Ollama + OpenAI, 과금 있음)
 
 ```bash
@@ -90,12 +92,15 @@ bash sh/run_frontend.sh            # (새 터미널) http://localhost:8600
 
 ### 화면에서 해볼 것
 
+목업회원 1(김솔이)로 로그인한 상태에서:
+
 1. 내 주문 패널의 **ORD-1004(배송지연)** 카드에서 "이 주문 문의하기" → 주문번호가 입력창에 채워짐 → "택배가 3일째 안 와요"
 2. 빠른 질문 칩 "환불 언제 돼요?" → 주문번호 없이도 반품 진행 중인 ORD-1006을 찾아서 환불 정책으로 답함
 3. "반품 기간이 어떻게 돼요?" → 주문 조회 없이 정책만 찾음 (처리 과정에 "주문 조회 없이 진행 (일반 정책 질문…)")
 4. "ORD-9999 어디쯤 왔어요?" → 없는 주문이라고 답함 (지어내지 않음)
 5. "극세사 담요 얼마에요?" → 화면과 같은 24,900원과 색상 옵션으로 답함. "노트북 얼마에요?"처럼 없는 상품은 가격을 말하지 않음
 6. 답변 아래 "처리 과정 N단계 보기"를 펼치면 어떤 주문·정책을 몇 점으로 골랐는지, 검수에서 왜 반려됐는지 보인다
+7. 로그아웃 → **목업회원 2(박하늘)**로 로그인 → 내 주문에 ORD-2001~2003만 보인다. 챗봇에 "ORD-1004 언제 와요?"라고 물으면 회원 1의 주문이라 "주문 내역에서 확인되지 않습니다"로 답한다. 같은 "택배가 안 와요"에도 회원 2는 배송중인 ORD-2001을 찾는다
 
 ---
 
@@ -120,8 +125,8 @@ bash sh/run_frontend.sh            # (새 터미널) http://localhost:8600
 
 | 종류 | 이름 | 왜 이 종류인가 |
 |---|---|---|
-| Tool | `list_my_orders`, `get_order`, `get_tracking` | 주문 상태는 계속 바뀌는 동적 조회 |
-| Tool | `search_products` | 상품 판매가·옵션 조회 — 화면과 같은 `products.json` |
+| Tool | `list_my_orders`, `get_order`, `get_tracking` | 주문 상태는 계속 바뀌는 동적 조회. 인자 `customer_id`는 에이전트 서버가 로그인 세션에서 채운다 |
+| Tool | `search_products` | 상품 판매가·옵션 조회 — 화면과 같은 상품 데이터 |
 | Tool | `list_policies`, `search_policies` | 질문과 가까운 문서를 '찾는' 동작 |
 | Resource | `policy://shop/{topic}` | URI로 식별되는 정적 문서 본문 |
 | Prompt | `cs_consult_prompt` | 상담 표준 절차(주문 확인 → 정책 확인 → 근거로만 안내)를 plan 단계에 깔아줌 |
@@ -214,7 +219,8 @@ route ─ chat ─────────────────────�
 
 ### 2-7. 쇼핑몰 화면 (`web_shop.html`)
 
-- 헤더 · 상품 그리드 · **내 주문/배송 패널**(상태 배지, 문제 표시, 배송 추적 타임라인) · **우측 하단 챗봇 버튼**
+- **로그인 화면** — 아이디·비밀번호 입력란, 그 아래 목업회원 1·2 바로 로그인 버튼. 로그인하면 새 대화(thread)로 시작하고, 로그아웃하면 화면에 남은 주문·대화를 지운다. 세션이 풀리면(서버 재시작) 로그인 화면으로 돌아간다
+- 헤더(회원 이름·등급, 로그아웃) · 상품 그리드 · **내 주문/배송 패널**(상태 배지, 문제 표시, 배송 추적 타임라인) · **우측 하단 챗봇 버튼**
 - 주문 카드의 "이 주문 문의하기" → 주문번호가 입력창에 채워진 채로 챗봇이 열린다. 빠른 질문 칩 4개
 - 챗봇은 `/chat/stream`(SSE)으로 단계 이벤트를 받아 "처리 과정"으로 보여주고, 답이 나오면 접는다
 - 검수에서 반려된 초안은 취소선으로 남기고 "검수에서 반려된 초안 — 다시 작성합니다"를 표시한다 (validate가 실제로 일하는 게 보이게)
@@ -295,6 +301,8 @@ bash sh/run_agent_hybrid.sh                               # 터미널 2
 
 .venv/bin/python eval/run_eval.py --compare eval/results/search_keyword.json eval/results/full.json
 ```
+
+평가셋의 정답은 목업회원 1(김솔이)의 주문 기준이라, `run_eval.py`는 먼저 `sol`로 로그인한 뒤 질문한다 (`--login 아이디:비밀번호`로 바꿀 수 있다).
 
 하이브리드 실행 전에는 Ollama에 요청을 한 번 보내 모델을 메모리에 올려 둔다 (첫 호출의 모델 로딩 시간이 지연 비교를 왜곡하지 않게).
 
@@ -472,6 +480,8 @@ doc/
 
 - 가상 쇼핑몰 주문·배송 상담 에이전트로 주제 전환 (조회·안내 전용)
 - 목업 주문·상품 데이터를 한 곳에 두고 화면과 에이전트가 같은 값을 쓰도록 구성
+- 주문 데이터를 Repository 계층으로 분리하고 SQLite 저장소로 전환 (JSON은 시드·테스트용 고정 데이터)
+- 목업 로그인(회원 2명)과 고객별 조회 제한 — 남의 주문번호는 '없는 주문'으로 응답, 대화 이력도 고객별 분리
 - MCP 서버를 별도 서비스로 분리 (주문·상품 조회 Tool, 정책 검색 Tool, 정책 Resource, 상담 절차 Prompt)
 - 키워드+벡터 하이브리드 RAG로 정책 문서 검색 (Qdrant, 점수 미달 시 질의 변경 재검색, 장애 시 키워드 폴백)
 - 상품 가격·옵션을 화면과 같은 데이터에서 조회해 가격을 지어내지 않게 함
