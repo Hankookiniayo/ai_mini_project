@@ -3,8 +3,8 @@
 Tool / Resource / Prompt 3대 capability를 모두 노출하는 fastmcp 서버.
 
 - Tool     list_my_orders / get_order / get_tracking : 주문·배송 상태는 계속 바뀌는
-           '동적 조회'라 Tool이 맞다
-- Tool     search_products                           : 상품 가격·옵션 조회 (화면과 같은 products.json)
+           '동적 조회'라 Tool이 맞다. 로그인한 고객(customer_id)의 주문만 조회된다
+- Tool     search_products                           : 상품 가격·옵션 조회 (화면과 같은 상품 데이터)
 - Tool     list_policies / search_policies           : 어떤 정책 문서가 있는지, 질문과 가장 가까운
            문서가 무엇인지 찾는다 (Qdrant RAG, 실패 시 키워드 폴백)
 - Resource policy://shop/{topic}                     : URI로 식별되는 정적 정책 문서 본문
@@ -63,23 +63,25 @@ class PolicyCatalog(BaseModel):
     policies: list[dict]
 
 
+# customer_id는 에이전트 서버가 로그인 세션에서 꺼내 채운다 — LLM이 만드는 인자가 아니다.
+# (실서비스라면 MCP 요청의 인증 토큰에서 고객을 꺼내는 편이 더 안전하다. 목업에서는 인자로 넘긴다.)
 @mcp.tool()
-def list_my_orders() -> OrderList:
+def list_my_orders(customer_id: str) -> OrderList:
     """로그인한 고객의 주문 요약 목록(최근 주문 먼저)을 반환합니다. 문제가 있는 주문은 issue에 표시됩니다."""
-    return OrderList(**SHOP.list_orders())
+    return OrderList(**SHOP.list_orders(customer_id))
 
 
 @mcp.tool()
-def get_order(order_id: str) -> dict:
+def get_order(customer_id: str, order_id: str) -> dict:
     """주문 상세(상품·옵션·결제 금액·배송지·예정일·반품 정보·수령 후 경과일)를 조회합니다.
-    없는 주문번호면 found=false를 반환합니다."""
-    return SHOP.get_order(order_id)
+    없는 주문번호이거나 다른 고객의 주문이면 found=false를 반환합니다."""
+    return SHOP.get_order(customer_id, order_id)
 
 
 @mcp.tool()
-def get_tracking(order_id: str) -> dict:
+def get_tracking(customer_id: str, order_id: str) -> dict:
     """주문의 배송 추적 이벤트(시각·위치·상태)와 마지막 이동 후 경과일을 조회합니다."""
-    return SHOP.get_tracking(order_id)
+    return SHOP.get_tracking(customer_id, order_id)
 
 
 @mcp.tool()

@@ -30,8 +30,9 @@ cat <<'MSG'
 ################################################################
  에이전트가 떠 있습니다 (LLM_BACKEND=fake — 과금 없음)
 ################################################################
- 1) 상담 질문
-    curl -sN -G localhost:8100/chat/stream --data-urlencode "message=택배가 3일째 안 와요"
+ 1) 상담 질문 (목업회원 1로 로그인한 뒤 세션 쿠키를 붙여 보낸다)
+    curl -s -c /tmp/shop.cookie -X POST localhost:8100/api/auth/login -H 'Content-Type: application/json' -d '{"login_id":"sol","password":"mock1234"}'
+    curl -sN -b /tmp/shop.cookie -G localhost:8100/chat/stream --data-urlencode "message=택배가 3일째 안 와요"
  2) 쇼핑몰 화면: (새 터미널) bash sh/run_frontend.sh → http://localhost:8600
 MSG
 

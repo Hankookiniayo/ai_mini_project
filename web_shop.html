@@ -7,7 +7,8 @@
 <!--
   쇼핑몰 한 페이지 + 우측 하단 상담 챗봇 (Vue 3 CDN, 빌드 없음)
 
-  - 상품 그리드 / 내 주문 패널: GET /api/shop/* (목업 데이터 — 에이전트의 MCP Tool과 같은 파일)
+  - 로그인: POST /api/auth/login — 세션 쿠키로 고객을 구분한다. 목업 회원 버튼을 누르면 그 계정으로 바로 로그인
+  - 상품 그리드 / 내 주문 패널: GET /api/shop/* (에이전트의 MCP Tool과 같은 저장소, 로그인한 고객의 주문만)
   - 챗봇: GET /chat/stream (SSE) — 에이전트가 단계별 이벤트와 답변 토큰을 흘려보낸다
   - "이 주문 문의하기"를 누르면 주문번호가 채팅 입력창에 미리 채워진다
   솔방울마켓은 실존하지 않는 가상의 쇼핑몰이다.
@@ -58,8 +59,42 @@
   }
   .logo { font-weight: 800; font-size: 20px; color: var(--brand); letter-spacing: -0.5px; }
   .nav { display: flex; gap: 16px; color: var(--muted); font-size: 14px; }
-  .who { margin-left: auto; font-size: 14px; color: var(--muted); white-space: nowrap; }
+  .who { margin-left: auto; font-size: 14px; color: var(--muted); white-space: nowrap;
+         display: flex; align-items: center; gap: 10px; }
   .who b { color: var(--text); }
+
+  /* ── 로그인 ───────────────────────────────────────── */
+  .login-wrap { min-height: calc(100vh - 60px); display: grid; place-items: center; padding: 32px 16px; }
+  .login-card {
+    width: 100%; max-width: 380px; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 16px; box-shadow: var(--shadow); padding: 28px 24px 24px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .login-card h1 { margin: 0; font-size: 20px; }
+  .login-card .lead { margin: -4px 0 4px; font-size: 13px; color: var(--muted); }
+  .login-card label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  .login-card input {
+    padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--text); font-size: 15px;
+  }
+  .login-error { font-size: 13px; color: var(--warn); background: var(--warn-soft); border-radius: 8px; padding: 6px 9px; }
+  .btn-login {
+    border: none; border-radius: 10px; padding: 11px; background: var(--brand); color: var(--brand-ink);
+    font-weight: 700; font-size: 15px;
+  }
+  .btn-login:disabled { opacity: .5; cursor: default; }
+  .divider { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+  .mock-accounts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .mock-accounts button {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left;
+    background: var(--surface-2); border: 1px solid var(--line); color: var(--text);
+    border-radius: 10px; padding: 10px 12px;
+  }
+  .mock-accounts button:hover:not(:disabled) { border-color: var(--brand); }
+  .mock-accounts button:disabled { opacity: .5; cursor: default; }
+  .mock-accounts b { font-size: 14px; }
+  .mock-accounts span { font-size: 12px; color: var(--muted); }
 
   /* ── 본문 레이아웃: 상품(왼쪽) + 내 주문(오른쪽) ─────────── */
   main {
@@ -205,11 +240,38 @@
     <div class="top-inner">
       <div class="logo">🌲 {{ customer.store_name || '솔방울마켓' }}</div>
       <nav class="nav"><span>신상품</span><span>베스트</span><span>의류</span><span>리빙</span></nav>
-      <div class="who" v-if="customer.name"><b>{{ customer.name }}</b>님 · {{ customer.grade }}</div>
+      <div class="who" v-if="customer.name">
+        <span><b>{{ customer.name }}</b>님 · {{ customer.grade }}</span>
+        <button class="btn-ghost" @click="logout">로그아웃</button>
+      </div>
     </div>
   </header>
 
-  <main>
+  <!-- 로그인 전: 아이디·비밀번호 입력 + 목업 회원 바로 로그인 -->
+  <div class="login-wrap" v-if="authChecked && !customer.customer_id">
+    <form class="login-card" @submit.prevent="login(loginId, loginPw)">
+      <h1>로그인</h1>
+      <p class="lead">내 주문 확인과 상담 챗봇은 로그인 후 이용할 수 있어요.</p>
+      <label>아이디
+        <input v-model="loginId" autocomplete="username" />
+      </label>
+      <label>비밀번호
+        <input v-model="loginPw" type="password" autocomplete="current-password" />
+      </label>
+      <div class="login-error" v-if="loginError">{{ loginError }}</div>
+      <button class="btn-login" type="submit" :disabled="loggingIn || !loginId || !loginPw">로그인</button>
+      <div class="divider">목업 계정으로 바로 로그인</div>
+      <div class="mock-accounts">
+        <button type="button" v-for="(m, i) in mockMembers" :key="m.login_id"
+                :disabled="loggingIn" @click="login(m.login_id, m.password)">
+          <b>목업회원 {{ i + 1 }}</b>
+          <span>{{ m.name }} ({{ m.login_id }})</span>
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <main v-if="customer.customer_id">
     <section class="banner">
       <div>
         <h1>주문·배송이 궁금하면 바로 물어보세요</h1>
@@ -262,9 +324,9 @@
     </aside>
   </main>
 
-  <button class="fab" v-if="!chatOpen" @click="openChat()">💬 상담 챗봇</button>
+  <button class="fab" v-if="customer.customer_id && !chatOpen" @click="openChat()">💬 상담 챗봇</button>
 
-  <section class="chat" v-if="chatOpen" role="dialog" aria-label="상담 챗봇">
+  <section class="chat" v-if="customer.customer_id && chatOpen" role="dialog" aria-label="상담 챗봇">
     <div class="chat-head">
       <div>
         <span class="title">솔방울마켓 상담 챗봇</span>
@@ -315,6 +377,12 @@
 <script>
 const { createApp, ref, reactive, nextTick, onMounted } = Vue;
 
+// 목업 회원 — data/shop/customers.json과 같은 계정. 버튼을 누르면 이 아이디·비밀번호로 바로 로그인한다.
+const MOCK_MEMBERS = [
+  { login_id: 'sol', password: 'mock1234', name: '김솔이' },
+  { login_id: 'haneul', password: 'mock5678', name: '박하늘' },
+];
+
 // validate 노드의 검사 이름 → 화면 표시
 const CHECK_NAMES = { format: '형식', numbers: '금액·기간', order_ids: '주문번호', dates: '날짜', coverage: '주문 누락' };
 
@@ -348,6 +416,11 @@ const STEP_LABELS = {
 createApp({
   setup() {
     const customer = ref({});
+    const authChecked = ref(false);   // 세션 확인이 끝나기 전에는 로그인 화면을 깜빡 보여주지 않는다
+    const loginId = ref('');
+    const loginPw = ref('');
+    const loginError = ref('');
+    const loggingIn = ref(false);
     const asOf = ref('');
     const products = ref([]);
     const orders = ref([]);
@@ -362,21 +435,69 @@ createApp({
     const logEl = ref(null);
     const inputEl = ref(null);
     const quickQuestions = ['택배가 안 와요', '반품하고 싶어요', '환불 언제 돼요?', '배송지 바꿀 수 있나요?'];
-    const thread = 't-shop-' + Math.random().toString(36).slice(2, 8);   // 페이지마다 새 대화
+    const newThread = () => 't-shop-' + Math.random().toString(36).slice(2, 8);
+    let thread = newThread();   // 로그인할 때마다 새 대화
     let nextId = 0;
 
     const won = n => Number(n).toLocaleString('ko-KR') + '원';
 
-    // ── 화면 데이터: 백엔드 /api/shop/* (목업 JSON) ──
-    onMounted(async () => {
+    // 로그아웃·세션 만료 — 화면에 남은 이전 고객의 주문·대화를 전부 지운다
+    function resetSession(message = '') {
+      customer.value = {};
+      orders.value = [];
+      log.value = [];
+      chatOpen.value = false;
+      loginError.value = message;
+      loginPw.value = '';
+    }
+
+    // ── 화면 데이터: 백엔드 /api/shop/* (로그인한 고객 기준) ──
+    async function loadShop() {
+      loadError.value = false;
       try {
-        const [c, p, o] = await Promise.all(['customer', 'products', 'orders']
+        const c = await fetch('/api/shop/customer');
+        if (c.status === 401) { resetSession(); return; }
+        if (!c.ok) throw c;
+        const [p, o] = await Promise.all(['products', 'orders']
           .map(path => fetch(`/api/shop/${path}`).then(r => { if (!r.ok) throw r; return r.json(); })));
-        customer.value = c;
+        customer.value = await c.json();
         products.value = p.products;
         orders.value = o.orders;
         asOf.value = o.as_of;
       } catch { loadError.value = true; }
+      finally { authChecked.value = true; }
+    }
+
+    async function login(id, pw) {
+      if (loggingIn.value) return;
+      loggingIn.value = true;
+      loginError.value = '';
+      try {
+        const r = await fetch('/api/auth/login', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ login_id: id, password: pw }),
+        });
+        if (!r.ok) {
+          loginError.value = (await r.json().catch(() => ({}))).detail || '로그인하지 못했어요.';
+          return;
+        }
+        thread = newThread();
+        log.value = [];
+        loginId.value = '';
+        loginPw.value = '';
+        await loadShop();
+      } catch {
+        loginError.value = '서버에 연결하지 못했어요 — 백엔드(server.py)가 떠 있는지 확인하세요.';
+      } finally { loggingIn.value = false; }
+    }
+
+    async function logout() {
+      await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+      resetSession();
+    }
+
+    onMounted(() => {
+      loadShop();
       fetch('/health').then(r => r.json()).then(h => {
         backendLabel.value = `${h.llm_backend} · ${h.fast_llm} / ${h.quality_llm} · MCP ${h.mcp_transport}`;
       }).catch(() => { backendLabel.value = '백엔드 연결 안 됨'; });
@@ -463,19 +584,23 @@ createApp({
         if (label) { stepsItem.steps.push(label); scrollToBottom(); }
       };
 
-      es.onerror = () => {
-        if (!stepsItem.done && !log.value.some(i => i.kind === 'agent' && i.id > stepsItem.id)) {
-          log.value.push({ id: nextId++, kind: 'agent', text: '연결이 끊겼어요. 잠시 후 다시 시도해 주세요.' });
-        }
+      es.onerror = async () => {
+        const answered = log.value.some(i => i.kind === 'agent' && i.id > stepsItem.id);
         finish();
+        if (answered) return;
+        // EventSource는 상태 코드를 알려주지 않는다 — 세션이 풀린 건지 따로 확인한다
+        const r = await fetch('/api/shop/customer').catch(() => null);
+        if (r && r.status === 401) { resetSession('로그인이 만료됐어요. 다시 로그인해 주세요.'); return; }
+        log.value.push({ id: nextId++, kind: 'agent', text: '연결이 끊겼어요. 잠시 후 다시 시도해 주세요.' });
       };
     }
 
     window.addEventListener('keydown', e => { if (e.key === 'Escape') chatOpen.value = false; });
 
-    return { customer, asOf, products, orders, loadError, openTracking, chatOpen, backendLabel,
+    return { customer, authChecked, loginId, loginPw, loginError, loggingIn, mockMembers: MOCK_MEMBERS,
+             asOf, products, orders, loadError, openTracking, chatOpen, backendLabel,
              log, input, sending, logEl, inputEl, quickQuestions,
-             won, toggle, openChat, askAbout, send };
+             won, toggle, openChat, askAbout, send, login, logout };
   },
 }).mount('#app');
 </script>

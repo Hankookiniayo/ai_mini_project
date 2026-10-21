@@ -6,3 +6,4 @@ __pycache__/
 .pytest_cache/
 qdrant_local/
 .DS_Store
+shop.db

@@ -76,13 +76,16 @@ cat <<EOF
 
 지금 바로 테스트해볼 수 있는 방법:
 
+0) 목업회원 1(sol)로 로그인 — 세션 쿠키를 저장해 두고 아래 요청에 붙인다
+   curl -s -c /tmp/shop.cookie -X POST localhost:8100/api/auth/login -H 'Content-Type: application/json' -d '{"login_id":"sol","password":"mock1234"}'
+
 1) curl로 말 걸어보기
-   curl -s -X POST localhost:8100/chat -H 'Content-Type: application/json' \\
+   curl -s -b /tmp/shop.cookie -X POST localhost:8100/chat -H 'Content-Type: application/json' \\
      -d '{"message":"택배가 3일째 안 와요","thread_id":"t-test"}' \\
      | python3 -m json.tool --no-ensure-ascii
 
 2) 실시간 진행 상황 보기 (스트리밍)
-   curl -sN -G "localhost:8100/chat/stream" \\
+   curl -sN -b /tmp/shop.cookie -G "localhost:8100/chat/stream" \\
      --data-urlencode "message=ORD-1006 환불 언제 돼요?" \\
      --data-urlencode "thread_id=t-test-sse"
 

@@ -3,12 +3,13 @@ from agent.validators import (check_dates, check_numbers, check_order_ids, cited
                               month_days, run_checks)
 from mcp_tools.policies import load_catalog
 from mcp_tools.shop import ShopStore
+from mcp_tools.shop_repo import JsonShopRepository
 
-SHOP = ShopStore()
+SHOP = ShopStore(JsonShopRepository())
 DELAY_POLICY = {p.topic: p for p in load_catalog()}["delivery-delay"]
 COLLECTED = [
-    {"source": "order", "data": SHOP.get_order("ORD-1004"),
-     "tracking": SHOP.get_tracking("ORD-1004")},
+    {"source": "order", "data": SHOP.get_order("C-0001", "ORD-1004"),
+     "tracking": SHOP.get_tracking("C-0001", "ORD-1004")},
     {"source": "policy", "key": "ORD-1004", "topic": "delivery-delay", "score": 0.8,
      "data": DELAY_POLICY.body},
 ]

@@ -2,6 +2,7 @@
   "orders": [
     {
       "order_id": "ORD-1001",
+      "customer_id": "C-0001",
       "ordered_at": "2026-10-20 09:12",
       "status": "paid",
       "items": [
@@ -20,6 +21,7 @@
     },
     {
       "order_id": "ORD-1002",
+      "customer_id": "C-0001",
       "ordered_at": "2026-10-19 21:40",
       "status": "preparing",
       "items": [
@@ -39,6 +41,7 @@
     },
     {
       "order_id": "ORD-1003",
+      "customer_id": "C-0001",
       "ordered_at": "2026-10-17 14:22",
       "status": "shipping",
       "items": [
@@ -60,6 +63,7 @@
     },
     {
       "order_id": "ORD-1004",
+      "customer_id": "C-0001",
       "ordered_at": "2026-10-14 11:03",
       "status": "delayed",
       "items": [
@@ -81,6 +85,7 @@
     },
     {
       "order_id": "ORD-1005",
+      "customer_id": "C-0001",
       "ordered_at": "2026-10-10 19:55",
       "status": "delivered",
       "items": [
@@ -104,6 +109,7 @@
     },
     {
       "order_id": "ORD-1006",
+      "customer_id": "C-0001",
       "ordered_at": "2026-10-05 13:30",
       "status": "return_requested",
       "items": [
@@ -131,6 +137,70 @@
         "return_shipping_fee": 6000,
         "expected_refund_amount": 53000
       }
+    },
+    {
+      "order_id": "ORD-2001",
+      "customer_id": "C-0002",
+      "ordered_at": "2026-10-18 10:30",
+      "status": "shipping",
+      "items": [
+        {"product_id": "P05", "name": "캔버스 토트백", "option": {"color": "아이보리"}, "qty": 1, "price": 29800},
+        {"product_id": "P10", "name": "핸드크림 3종 세트", "option": {}, "qty": 1, "price": 15900}
+      ],
+      "shipping_fee": 0,
+      "total_amount": 45700,
+      "payment_method": "간편결제",
+      "shipping_address": "부산시 해운대구 센텀중앙로 55, 2203호",
+      "carrier": "한빛택배",
+      "tracking_no": "4521-0000-2001",
+      "expected_delivery": "2026-10-21",
+      "delivered_at": null,
+      "tracking": [
+        {"time": "2026-10-19 15:00", "location": "솔방울마켓 물류센터", "status": "집화 완료"},
+        {"time": "2026-10-20 03:20", "location": "부산 허브", "status": "간선 하차"}
+      ]
+    },
+    {
+      "order_id": "ORD-2002",
+      "customer_id": "C-0002",
+      "ordered_at": "2026-10-06 20:15",
+      "status": "delivered",
+      "items": [
+        {"product_id": "P04", "name": "에어라이트 러닝화", "option": {"size": "270", "color": "블랙"}, "qty": 1, "price": 89000}
+      ],
+      "shipping_fee": 0,
+      "total_amount": 89000,
+      "payment_method": "신용카드",
+      "shipping_address": "부산시 해운대구 센텀중앙로 55, 2203호",
+      "carrier": "한빛택배",
+      "tracking_no": "4521-0000-2002",
+      "expected_delivery": "2026-10-09",
+      "delivered_at": "2026-10-09 12:30",
+      "tracking": [
+        {"time": "2026-10-07 17:00", "location": "솔방울마켓 물류센터", "status": "집화 완료"},
+        {"time": "2026-10-08 04:00", "location": "옥천 허브", "status": "간선 하차"},
+        {"time": "2026-10-09 08:50", "location": "해운대 대리점", "status": "배송 출발"},
+        {"time": "2026-10-09 12:30", "location": "고객 문 앞", "status": "배송 완료"}
+      ]
+    },
+    {
+      "order_id": "ORD-2003",
+      "customer_id": "C-0002",
+      "ordered_at": "2026-10-20 08:05",
+      "status": "paid",
+      "items": [
+        {"product_id": "P09", "name": "울 블렌드 니트 가디건", "option": {"size": "S", "color": "차콜"}, "qty": 1, "price": 52000},
+        {"product_id": "P06", "name": "스테인리스 텀블러 500ml", "option": {"color": "실버"}, "qty": 1, "price": 18500}
+      ],
+      "shipping_fee": 0,
+      "total_amount": 70500,
+      "payment_method": "신용카드",
+      "shipping_address": "부산시 해운대구 센텀중앙로 55, 2203호",
+      "carrier": null,
+      "tracking_no": null,
+      "expected_delivery": "2026-10-23",
+      "delivered_at": null,
+      "tracking": []
     }
   ]
 }
