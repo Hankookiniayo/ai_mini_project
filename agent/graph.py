@@ -59,6 +59,7 @@ STATUS_HINTS = {
 class AgentState(TypedDict, total=False):
     query: str
     thread_id: str
+    customer_id: str          # 로그인 세션에서 서버가 채운다 — 주문 조회 Tool에 그대로 넘긴다
     history: list[dict]
     route: str
     needs_analysis: bool
@@ -115,14 +116,15 @@ async def chat_answer_node(state: AgentState, deps: SupervisorDeps) -> dict:
 async def plan_node(state: AgentState, deps: SupervisorDeps) -> dict:
     """Plan/Task 분해.
 
-    1) MCP Tool list_my_orders로 고객의 주문 요약을 먼저 받는다 — LLM이 '실제로 있는 주문' 중에서
-       고르게 하기 위함 (에이전트는 데이터 파일을 직접 읽지 않고 MCP로만 받는다)
+    1) MCP Tool list_my_orders로 로그인한 고객의 주문 요약을 먼저 받는다 — LLM이 '실제로 있는 주문'
+       중에서 고르게 하기 위함 (에이전트는 데이터를 직접 읽지 않고 MCP로만 받는다)
     2) MCP Prompt cs_consult_prompt가 상담 표준 절차를 깔아준다
     3) LLM이 raw 계획을 세우고, planning.normalize_plan이 코드로 보정한다
     tool/prompt를 어느 서버가 들고 있는지 미리 가정하지 않고 find_*로 먼저 찾는다."""
     query = state["query"]
     orders_server = await deps.mcp.find_tool("list_my_orders")
-    order_list = await deps.mcp.call_tool("list_my_orders", {}, server=orders_server)
+    order_list = await deps.mcp.call_tool("list_my_orders", {"customer_id": state["customer_id"]},
+                                          server=orders_server)
     orders = order_list.get("orders", [])
 
     prompt_server = await deps.mcp.find_prompt("cs_consult_prompt")
@@ -188,11 +190,11 @@ async def research_node(state: AgentState, deps: SupervisorDeps) -> dict:
         policy_server, policy_uri_template = await deps.mcp.find_resource_template("get_policy")
 
     async def fetch_order(idx: int, task: dict) -> dict:
+        # customer_id는 LLM 계획이 아니라 세션에서 온 값 — 남의 주문번호를 물어도 '없음'으로 돌아온다
+        args = {"customer_id": state["customer_id"], "order_id": task["target"]}
         (detail, retries), tracking = await asyncio.gather(
-            with_retry(deps.mcp.call_tool, "get_order", {"order_id": task["target"]},
-                       server=order_server),
-            deps.mcp.call_tool("get_tracking", {"order_id": task["target"]},
-                               server=order_server))
+            with_retry(deps.mcp.call_tool, "get_order", args, server=order_server),
+            deps.mcp.call_tool("get_tracking", args, server=order_server))
         return {"idx": idx, "source": "order", "data": detail, "tracking": tracking,
                 "retries": retries}
 

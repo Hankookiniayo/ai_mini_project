@@ -52,11 +52,13 @@ cat <<'EOF'
 ################################################################
  에이전트가 떠 있습니다 (LLM_BACKEND=hybrid, MCP_TRANSPORT=http)
 ################################################################
+ 0) 목업회원 1(sol)로 로그인 — 세션 쿠키를 저장해 두고 아래 요청에 붙인다
+    curl -s -c /tmp/shop.cookie -X POST localhost:8100/api/auth/login -H 'Content-Type: application/json' -d '{"login_id":"sol","password":"mock1234"}'
  1) 가벼운 대화 (Ollama가 답함)
-    curl -s -X POST localhost:8100/chat -H 'Content-Type: application/json' \
+    curl -s -b /tmp/shop.cookie -X POST localhost:8100/chat -H 'Content-Type: application/json' \
       -d '{"message":"안녕, 너는 누구야?","thread_id":"t1"}' | python3 -m json.tool --no-ensure-ascii
  2) 주문 상담 (OpenAI가 계획·답변 작성)
-    curl -s -X POST localhost:8100/chat -H 'Content-Type: application/json' \
+    curl -s -b /tmp/shop.cookie -X POST localhost:8100/chat -H 'Content-Type: application/json' \
       -d '{"message":"택배가 3일째 안 와요","thread_id":"t2"}' \
       | python3 -m json.tool --no-ensure-ascii
  3) 쇼핑몰 화면: (새 터미널) bash sh/run_frontend.sh → http://localhost:8600

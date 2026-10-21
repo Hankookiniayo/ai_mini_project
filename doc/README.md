@@ -12,7 +12,8 @@
 
 | 구성 요소 | 하는 일 | 핵심 파일 |
 |---|---|---|
-| 목업 데이터 (단일 소스) | 고객 1명·상품 10개·주문 6건(상태별 1건씩)·정책 문서 8개. 화면과 에이전트가 같은 파일을 읽음 | `data/shop/`, `mcp_tools/shop.py` |
+| 목업 데이터 (단일 소스) | 목업 회원 2명·상품 10개·주문 9건(회원 1은 상태별 1건씩 6건)·정책 문서 8개. SQLite(`shop.db`)에 넣고 화면과 에이전트가 같은 저장소를 읽음 | `data/shop/`, `mcp_tools/shop.py`, `mcp_tools/shop_repo.py` |
+| 목업 로그인 | 아이디·비밀번호 + 목업회원 1·2 바로 로그인 버튼. 세션 쿠키로 고객을 구분하고 화면·챗봇 모두 그 고객의 주문만 조회 | `server.py`, `web_shop.html` |
 | MCP 서버 (별도 서비스) | 주문 조회 Tool 3개 + 상품 조회 Tool + 정책 검색 Tool 2개 + 정책 Resource + 상담 절차 Prompt | `mcp_server.py`, `sh/run_mcp.sh` |
 | 상담 파이프라인 | route → plan → gate → research ⇄ replan_check → analysis → write ⇄ validate | `agent/graph.py`, `agent/planning.py` |
 | 정책 검색 (RAG) | 키워드+벡터 하이브리드 검색(Qdrant, `text-embedding-3-large`), Qdrant 장애 시 키워드로 폴백, 점수 미달이면 질의를 바꿔 재검색 | `mcp_tools/policies.py`, `scripts/index_policies.py`, `scripts/compare_retrieval.py` |
@@ -20,7 +21,7 @@
 | LLM 하이브리드 | 잡담=Ollama(로컬, 과금 0) / 라우팅·계획=gpt-4o-mini / 답변 작성=gpt-4o | `agent/hybrid_llm.py`, `agent/prompts.py` |
 | 쇼핑몰 화면 | 상품 그리드 + 내 주문 패널(상태 배지·배송 추적) + 우측 하단 챗봇 (Vue 3 CDN, 빌드 없음) | `web_shop.html`, `web_demo_server.py` |
 | LangSmith 추적 | 질문 하나 = 트리 하나 (그래프 노드 · LLM 호출 · MCP 호출) | `@traceable` (`agent/`), `.env` |
-| 평가·테스트 | 정답 기반 평가셋 25문항 + 검색 방식 비교용 dev 질문 30개 + 오프라인 단위 테스트 50개 | `eval/`, `tests/` |
+| 평가·테스트 | 정답 기반 평가셋 25문항 + 검색 방식 비교용 dev 질문 30개 + 오프라인 단위 테스트 66개 | `eval/`, `tests/` |
 
 ### 구조
 
@@ -44,7 +45,7 @@ flowchart TB
         P1["Prompt cs_consult_prompt"]
     end
 
-    Data[("data/shop/*.json<br/>목업 주문·상품·고객")]
+    Data[("shop.db (SQLite)<br/>data/shop/*.json으로 시드")]
     ShopAPI --> Data
     T1 --> Data
     T2 -->|"하이브리드 검색"| Qdrant[("Qdrant 로컬 파일<br/>./qdrant_local")]
@@ -108,10 +109,12 @@ bash sh/run_frontend.sh            # (새 터미널) http://localhost:8600
 - `data/shop/`에 고객·상품·주문·정책을 둔다. 주문 6건은 상태를 하나씩 배치했다:
   결제완료(ORD-1001) / 배송준비중(1002) / 배송중(1003) / **배송지연(1004)** / 배송완료(1005) / 반품요청됨(1006)
 - `mcp_tools/shop.py`의 `ShopStore` 한 클래스로 읽는다. 화면용 API(`server.py`의 `/api/shop/*`)와 MCP Tool(`get_order` 등)이 둘 다 이 클래스를 쓴다.
+- **저장소와 판정 로직을 나눴다.** `ShopStore`는 지연·반품 기간 판정만 하고, 데이터는 `mcp_tools/shop_repo.py`의 Repository가 가져온다. 기본은 SQLite(`shop.db`, 스키마 `data/shop/schema.sql`)이고 처음 실행할 때 `data/shop/*.json`으로 자동 시드한다(`python scripts/seed_shop_db.py --reset`으로 다시 만들기). `SHOP_BACKEND=json`이면 JSON을 직접 읽는다. 실제 주문 DB·API로 바꿀 때는 Repository 구현만 하나 더 만들면 된다.
+- **고객별로 나눈다.** 목업 회원 2명(김솔이 `sol`/`mock1234`, 박하늘 `haneul`/`mock5678`)이 있고, 모든 주문 조회에 `customer_id`가 붙는다. 로그인 세션에서 서버가 `customer_id`를 꺼내 MCP Tool에 넘기므로(LLM이 정하는 값이 아님) 회원 2가 회원 1의 주문번호를 물어도 "없는 주문"으로 답한다. 대화 이력도 고객별로 저장한다.
 - **기준일(`as_of: 2026-10-20`)을 데이터 안에 고정**했다. "3일째 안 옴" 같은 경과일을 실제 오늘 날짜로 계산하면 평가를 다른 날 돌릴 때마다 정답이 바뀐다.
 - 상태값만 믿지 않고 날짜로도 판정한다. 도착 예정일을 2일 이상 넘긴 미배송 주문은 `issue`에 "배송지연: 도착 예정일 …보다 3일 지남, 마지막 이동 … (3일째 이동 없음)"이 붙는다.
 
-**확인.** `tests/test_shop_store.py` (지연 판정, 반품 마감일 계산, 없는/이상한 주문번호 처리)
+**확인.** `tests/test_shop_store.py` (지연 판정, 반품 마감일 계산, 없는/이상한 주문번호 처리, 고객별 분리, 로그인 — JSON·SQLite 두 저장소에서 같은 테스트), `tests/test_graph_flow.py` (회원 2가 회원 1의 주문을 물으면 '없음')
 
 ### 2-2. MCP 서버: Tool · Resource · Prompt
 
@@ -243,7 +246,7 @@ route ─ chat ─────────────────────�
 
 | 파일 | 확인하는 것 |
 |---|---|
-| `test_shop_store.py` | 지연 판정, 반품 마감일, 추적 경과일, 주문번호 검증, 상품 검색 |
+| `test_shop_store.py` | 지연 판정, 반품 마감일, 추적 경과일, 주문번호 검증, 상품 검색, 고객별 분리, 로그인 (JSON·SQLite 두 저장소) |
 | `test_planning.py` | plan 보정 규칙 ①~⑤, 일반 질문, 상품 문의, 지어낸 주문번호 제거, 1차 측정 회귀(LLM의 '일반 질문' 판단보다 문제 주문 우선) |
 | `test_policy_search.py` | 카탈로그, 키워드 검색, in-memory Qdrant, 하이브리드 점수, Qdrant 장애 폴백, 키워드 검색의 한계 |
 | `test_validators.py` | 5가지 검사, basic 모드, 정책 없음 명시, 기간 vs 날짜 구분, 틀린 상품 가격 반려 |
@@ -416,7 +419,8 @@ bash sh/run_agent_hybrid.sh                               # 터미널 2
 - **검색은 아직 완벽하지 않다.** 하이브리드로 바꿔 바꿔 말한 질문 적중률이 0.286 → 0.571이 됐지만 7개 중 3개는 여전히 놓친다 (예: "받은 물건이 고른 거랑 달라요" → 하자 정책이 3위). 관련 없는 질문 6개 중 3개("회원 등급" 등)에도 정책을 가져온다. 다음 후보: 문서가 8개뿐이니 LLM이 카탈로그에서 직접 고르게 하는 방법.
 - **평가 데이터의 결함.** s21("신발 밑창이 떨어진 채로 왔어요")은 신발 주문(ORD-1004)이 아직 배송 전이라, 두 설정 모두 배송 지연으로 답했다. 하자 질문용으로는 배송 완료된 신발 주문이 필요했다.
 - **측정 횟수와 과적합.** 설정마다 1회, 22문항이라 1~2문항의 변동이 지표를 0.05~0.1씩 움직인다. 2등 문서 비율(0.9)과 일반 질문 패턴은 1차 측정 질문을 보면서 정했다. 하이브리드의 비중·임계치는 평가셋과 겹치지 않는 dev 질문으로 골랐다. 4차는 After 설정만 측정했고 비교 설정은 다시 재지 않았다.
-- **목업 데이터.** 고객 1명·주문 6건이라 "주문을 찾는" 문제가 실제보다 쉽다. 실제 주문 DB로 바꿀 때는 `ShopStore`만 바꾸면 되고 MCP Tool 스키마와 에이전트는 그대로다.
+- **목업 데이터.** 회원 2명·주문 9건이라 "주문을 찾는" 문제가 실제보다 쉽다. 실제 주문 DB로 바꿀 때는 `shop_repo.py`에 Repository 구현만 추가하면 되고 MCP Tool 스키마와 에이전트는 그대로다.
+- **목업 로그인.** 세션은 서버 메모리에 있어서 재시작하면 다시 로그인해야 하고, 고객 식별은 MCP Tool 인자(`customer_id`)로 넘긴다. 실서비스라면 세션은 공유 저장소에, 고객 식별은 MCP 요청의 인증 토큰에 둔다.
 - **조회·안내만.** 반품·취소·배송지 변경 '접수'는 하지 않는다. 접수까지 하려면 사용자 승인(Human-in-the-loop) 단계와 쓰기 Tool이 필요하다 (과제 PDF 개선 예시 4번).
 - **검증의 범위.** 숫자·주문번호·날짜는 잡지만, 숫자 없이 틀린 문장("반품이 불가능합니다")은 못 잡는다. 또 '3~5영업일'의 앞쪽 3처럼 범위 표기 일부는 검사하지 않는다.
 - **키워드 폴백의 품질.** Qdrant가 죽어도 상담은 계속되지만, 형태소 분석기 없이 접두 일치로 조사만 흡수한다.
@@ -439,22 +443,24 @@ agent/
   deps.py · retry.py · session_store.py · supervisor_v1.py
 mcp_server.py      MCP 서버 (Tool · Resource · Prompt)
 mcp_tools/
-  shop.py          목업 주문·상품 저장소 (MCP Tool과 화면 API가 같이 씀)
+  shop.py          주문 조회 서비스 — 지연·반품 판정 (MCP Tool과 화면 API가 같이 씀)
+  shop_repo.py     저장소 (SQLite 기본 | JSON) — 고객별 조회, 시드
   policies.py      정책 문서 카탈로그 + 검색 (hybrid | qdrant | keyword)
   embeddings.py    임베딩 (openai text-embedding-3-large | fake)
-data/shop/         customer.json · products.json · orders.json · policies/*.md
-server.py          FastAPI 에이전트 :8100 (/chat, /chat/stream, /api/shop/*)
+data/shop/         customers.json · products.json · orders.json (시드 원본) · schema.sql · policies/*.md
+server.py          FastAPI 에이전트 :8100 (/chat, /chat/stream, /api/shop/*, /api/auth/*)
 web_shop.html      쇼핑몰 화면 + 챗봇 (Vue 3 CDN)
 web_demo_server.py 화면 서버 :8600 (백엔드 프록시)
 scripts/
   index_policies.py     정책 문서 인덱싱 (Qdrant 로컬 파일 ./qdrant_local)
+  seed_shop_db.py       쇼핑몰 SQLite DB 만들기 (data/shop/*.json → shop.db)
   compare_retrieval.py  검색 방식 비교 (dev 질문으로 방식·임계치 선택)
 eval/
   dataset.json          평가셋 25문항
   retrieval_dev.json    검색 방식 선택용 dev 질문 30개
   run_eval.py · common.py   평가 실행·채점
   results/              round1~round4 측정 결과, retrieval_dev.json
-tests/             단위 테스트 50개 (오프라인)
+tests/             단위 테스트 66개 (오프라인)
 sh/                setup_venv · setup_ollama · index_policies · run_mcp · run_agent_{fake,hybrid,openai,ollma} · run_frontend · make_student_zip
 doc/
   README.md             이 문서

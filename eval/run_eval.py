@@ -25,7 +25,7 @@ import json
 import uuid
 from pathlib import Path
 
-from common import (ROOT, ask, fetched_policies, grounded, looked_up_orders, mean,
+from common import (ROOT, ask, fetched_policies, grounded, login, looked_up_orders, mean,
                     order_scores, policy_recall, print_table, value_coverage)
 
 RESULTS = ROOT / "eval" / "results"
@@ -35,12 +35,12 @@ METRICS = ["route_acc", "order_recall", "order_precision", "policy_recall",
            "latency_s", "cost_usd"]
 
 
-def run_case(base: str, case: dict, label: str) -> dict:
+def run_case(base: str, case: dict, label: str, cookies) -> dict:
     thread = f"eval-{label}-{case['id']}-{uuid.uuid4().hex[:6]}"
     turns = case.get("turns") or [case["query"]]
     total_latency, total_cost = 0.0, 0.0
     for msg in turns:                      # 다중 턴이면 같은 thread로 순서대로 보낸다
-        out = ask(base, msg, thread)
+        out = ask(base, msg, thread, cookies)
         total_latency += out["latency_s"]
         total_cost += out["metadata"].get("cost_usd") or 0.0
     query = turns[-1]
@@ -105,6 +105,8 @@ def main() -> None:
     parser.add_argument("--base", default="http://127.0.0.1:8100")
     parser.add_argument("--dataset", default=str(ROOT / "eval" / "dataset.json"))
     parser.add_argument("--only", help="쉼표로 구분한 case id만 실행 (예: s01,s07)")
+    parser.add_argument("--login", default="sol:mock1234",
+                        help="아이디:비밀번호 — 데이터셋 정답이 목업회원 1 기준이라 기본값은 sol")
     parser.add_argument("--compare", nargs=2, metavar=("BEFORE", "AFTER"))
     args = parser.parse_args()
 
@@ -121,9 +123,10 @@ def main() -> None:
     health = __import__("httpx").get(f"{args.base}/health", timeout=10).json()
     print(f"[eval] label={args.label} server={health.get('llm_backend')} "
           f"fast={health.get('fast_llm')} quality={health.get('quality_llm')}")
+    cookies = login(args.base, *args.login.split(":", 1))
     results = []
     for case in cases:
-        r = run_case(args.base, case, args.label)
+        r = run_case(args.base, case, args.label, cookies)
         results.append(r)
         print(f"  {r['id']}  route={r['route']}  orders={r['looked_up_orders']}  "
               f"policies={r['fetched_policies']}  grounded={r['grounded']}  "

@@ -16,13 +16,22 @@ sys.path.insert(0, str(ROOT))
 from agent.validators import check_dates, check_numbers, check_order_ids  # noqa: E402
 
 
-def ask(base: str, message: str, thread_id: str, timeout: float = 300.0) -> dict:
+def login(base: str, login_id: str, password: str) -> httpx.Cookies:
+    """목업 로그인 → 세션 쿠키. 데이터셋의 정답은 목업회원 1(sol)의 주문 기준이다."""
+    resp = httpx.post(f"{base}/api/auth/login", json={"login_id": login_id, "password": password},
+                      timeout=10)
+    resp.raise_for_status()
+    return resp.cookies
+
+
+def ask(base: str, message: str, thread_id: str, cookies: httpx.Cookies | None = None,
+        timeout: float = 300.0) -> dict:
     """/chat/stream을 끝까지 읽어 이벤트·최종 답변·프롬프트·metadata·지연시간을 모은다."""
     events, reply, prompt, metadata = [], "", None, {}
     started = time.perf_counter()
     with httpx.stream("GET", f"{base}/chat/stream",
                       params={"message": message, "thread_id": thread_id},
-                      timeout=timeout) as resp:
+                      cookies=cookies, timeout=timeout) as resp:
         resp.raise_for_status()
         for line in resp.iter_lines():
             if not line.startswith("data:"):

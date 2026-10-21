@@ -1,8 +1,9 @@
 """plan 코드 보정(agent/planning.py) 단위 테스트 — LLM 없이 규칙 ①~⑤를 확인한다."""
 from agent.planning import normalize_plan, pick_orders
 from mcp_tools.shop import ShopStore
+from mcp_tools.shop_repo import JsonShopRepository
 
-ORDERS = ShopStore().list_orders()["orders"]
+ORDERS = ShopStore(JsonShopRepository()).list_orders("C-0001")["orders"]   # 목업회원 1의 주문
 EMPTY = {"needs_order": True, "tasks": []}
 
 

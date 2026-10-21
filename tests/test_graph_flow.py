@@ -1,7 +1,7 @@
 """그래프 전체 흐름 테스트 — MCP를 가짜 객체로 갈아 끼워 오프라인으로 돌린다.
 
 SupervisorDeps에 fake MCP를 '주입'하는 것만으로 서버·MCP 프로세스 없이 그래프 전체를
-검증할 수 있다 (교재 14장 의존성 주입의 효과). 데이터는 실제 목업 파일(data/shop)을 쓴다.
+검증할 수 있다 (교재 14장 의존성 주입의 효과). 데이터는 실제 목업 파일(data/shop/*.json)을 쓴다.
 """
 import asyncio
 
@@ -11,6 +11,7 @@ from agent.graph import build_graph
 from agent.validators import run_checks
 from mcp_tools.policies import PolicySearcher, load_catalog
 from mcp_tools.shop import ShopStore
+from mcp_tools.shop_repo import JsonShopRepository
 
 
 class FakeMCP:
@@ -19,7 +20,7 @@ class FakeMCP:
     transport = "fake"
 
     def __init__(self, low_score_calls=0, broken_orders=()):
-        self.shop = ShopStore()
+        self.shop = ShopStore(JsonShopRepository())
         self.searcher = PolicySearcher(load_catalog(), mode="keyword")
         self.low_score_calls = low_score_calls
         self.broken = set(broken_orders)
@@ -39,13 +40,13 @@ class FakeMCP:
 
     async def call_tool(self, name, args, server="ops"):
         if name == "list_my_orders":
-            return self.shop.list_orders()
+            return self.shop.list_orders(args["customer_id"])
         if name == "get_order":
             if args["order_id"] in self.broken:
                 raise RuntimeError("order DB unreachable")
-            return self.shop.get_order(args["order_id"])
+            return self.shop.get_order(args["customer_id"], args["order_id"])
         if name == "get_tracking":
-            return self.shop.get_tracking(args["order_id"])
+            return self.shop.get_tracking(args["customer_id"], args["order_id"])
         if name == "search_products":
             return self.shop.search_products(args["query"])
         if name == "search_policies":
@@ -62,12 +63,13 @@ class FakeMCP:
         return self.searcher.by_topic[uri.rsplit("/", 1)[-1]].body
 
 
-def run(query, mcp=None):
+def run(query, mcp=None, customer_id="C-0001"):
     deps = SupervisorDeps(fast_llm=FastLLM("fast", 0.00015),
                           quality_llm=QualityLLM("quality", 0.005),
                           mcp=mcp or FakeMCP(), session_store=None, version="v2")
     return asyncio.run(build_graph(deps).ainvoke(
-        {"query": query, "thread_id": "t", "history": [], "events": [], "cost_usd": 0.0}))
+        {"query": query, "thread_id": "t", "customer_id": customer_id, "history": [],
+         "events": [], "cost_usd": 0.0}))
 
 
 def events(state, kind):
@@ -117,6 +119,21 @@ def test_unknown_order_id_is_reported_not_invented():
     assert events(state, "Validation")[-1]["verdict"] == "합격"
 
 
+def test_other_customers_order_is_not_visible():
+    """목업회원 2(박하늘)가 목업회원 1의 주문번호를 물으면 '없는 주문'과 똑같이 처리된다."""
+    state = run("ORD-1004 언제 와요?", customer_id="C-0002")
+    done = [e for e in events(state, "TaskCompleted") if e["source"] == "order"]
+    assert [(e["target"], e["found"]) for e in done] == [("ORD-1004", False)]
+    assert "러닝화" not in state["final"] and "대전 터미널" not in state["final"]
+
+
+def test_each_customer_plans_from_own_orders():
+    """같은 질문이라도 고객마다 자기 주문 중에서 고른다 (회원 1: 지연 주문, 회원 2: 배송중 주문)."""
+    assert events(run("택배가 안 와요"), "PlanCreated")[0]["targets"] == ["ORD-1004"]
+    assert events(run("택배가 안 와요", customer_id="C-0002"),
+                  "PlanCreated")[0]["targets"] == ["ORD-2001"]
+
+
 def test_low_score_triggers_requery_round():
     mcp = FakeMCP(low_score_calls=1)
     state = run("ORD-1004 언제 와요?", mcp)
@@ -162,8 +179,8 @@ def test_three_failed_checks_fall_back_to_safe_answer():
                           quality_llm=InventingWriter("quality", 0.005),
                           mcp=FakeMCP(), session_store=None, version="v2")
     state = asyncio.run(build_graph(deps).ainvoke(
-        {"query": "ORD-1006 환불 언제 돼요?", "thread_id": "t", "history": [],
-         "events": [], "cost_usd": 0.0}))
+        {"query": "ORD-1006 환불 언제 돼요?", "thread_id": "t", "customer_id": "C-0001",
+         "history": [], "events": [], "cost_usd": 0.0}))
     v = events(state, "Validation")
     assert [e["verdict"] for e in v] == ["불합격", "불합격", "안전 답변 대체"]
     assert events(state, "SafeFallback")

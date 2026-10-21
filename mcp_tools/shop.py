@@ -1,27 +1,29 @@
-"""쇼핑몰 목업 데이터 저장소 — 주문 조회 MCP Tool과 화면용 API가 '같은 파일'을 읽는다.
+"""쇼핑몰 주문 조회 서비스 — 주문 조회 MCP Tool과 화면용 API가 '같은 클래스'를 거쳐 같은 데이터를 본다.
 
-데이터 위치: data/shop/
-  customer.json  로그인한 목업 고객 1명 + 기준일(as_of)
-  products.json  상품 목록 (화면 상품 그리드용)
-  orders.json    주문 6건 (상태별로 하나씩) + 배송 추적 이벤트
+데이터가 어디 있는지(SQLite / JSON)는 mcp_tools/shop_repo.py의 Repository가 맡고, 이 클래스는
+'판정 로직'(지연 여부, 반품 가능 기간, 화면·Tool 응답 모양)만 맡는다. 저장소를 바꿔도 이 파일은 그대로다.
 
-왜 한 곳에서 읽나
+왜 한 곳을 거치나
   화면에 "배송지연"으로 보이는 주문을 챗봇에 물으면, 챗봇도 '그 주문의 실제 값'으로
   답해야 한다. 화면(server.py의 /api/shop/*)과 에이전트(MCP Tool)가 이 클래스 하나를
-  거쳐 같은 JSON을 읽게 해서 둘이 어긋날 수 없게 했다.
+  거치게 해서 둘이 어긋날 수 없게 했다.
+
+왜 모든 조회에 customer_id가 붙나
+  로그인한 고객의 주문만 보여야 한다. 남의 주문번호를 넣으면 '없는 주문'과 똑같이 답한다
+  (그 주문이 존재한다는 사실도 알려주지 않는다). customer_id는 LLM이 정하는 값이 아니라
+  에이전트 서버가 로그인 세션에서 꺼내 넣는다.
 
 왜 기준일(as_of)을 고정하나
   "3일째 안 와요" 같은 경과일 계산을 실제 오늘 날짜로 하면, 평가를 다른 날 돌릴 때마다
-  정답이 바뀐다. 목업 데이터 안에 '오늘'을 적어 두면 언제 돌려도 같은 결과가 나온다.
+  정답이 바뀐다. 데이터 안에 '오늘'을 적어 두면 언제 돌려도 같은 결과가 나온다.
 
 에이전트(agent/)는 이 모듈을 import하지 않는다 — MCP Tool 결과(JSON)로만 데이터를 받는다.
 """
-import json
+import hmac
 import re
 from datetime import date, datetime, timedelta
-from pathlib import Path
 
-SHOP_DIR = Path(__file__).resolve().parent.parent / "data" / "shop"
+from .shop_repo import ShopRepository, hash_password, repository_from_env
 
 STATUS_LABELS = {
     "paid": "결제완료",
@@ -34,7 +36,7 @@ STATUS_LABELS = {
 
 RETURN_WINDOW_DAYS = 7          # 교환·반품 신청 가능 기간 (data/shop/policies/return-exchange.md와 같은 값)
 DELAY_THRESHOLD_DAYS = 2        # 도착 예정일보다 이만큼 늦으면 '지연' (delivery-delay.md와 같은 값)
-_ORDER_ID = re.compile(r"^ORD-\d{4}$")   # 입력 검증 — 이상한 문자열로 파일을 뒤지지 않게
+_ORDER_ID = re.compile(r"^ORD-\d{4}$")   # 입력 검증 — 형식이 이상한 값은 저장소까지 보내지 않는다
 
 
 def _day(text: str | None) -> date | None:
@@ -45,30 +47,34 @@ def _day(text: str | None) -> date | None:
 
 
 class ShopStore:
-    def __init__(self, shop_dir: Path = SHOP_DIR):
-        self.shop_dir = shop_dir
+    def __init__(self, repo: ShopRepository | None = None):
+        self.repo = repo or repository_from_env()
 
-    # ── 파일 읽기 ─────────────────────────────────────────────────────
-    # 호출할 때마다 다시 읽는다 — 파일이 작아서 비용이 거의 없고, 목업 데이터를 고치면
-    # 서버를 재시작하지 않아도 화면과 챗봇에 바로 반영된다.
-    def _load(self, name: str) -> dict:
-        return json.loads((self.shop_dir / name).read_text(encoding="utf-8"))
+    # ── 저장소 읽기 ───────────────────────────────────────────────────
+    def customer(self, customer_id: str) -> dict | None:
+        c = self.repo.get_customer(customer_id)
+        return {**c, **self.repo.meta()} if c else None
 
-    def customer(self) -> dict:
-        data = self._load("customer.json")
-        return {**data["customer"], "as_of": data["as_of"], "store_name": data["store_name"]}
+    def authenticate(self, login_id: str, password: str) -> dict | None:
+        """아이디·비밀번호가 맞으면 고객 정보, 아니면 None (어느 쪽이 틀렸는지는 알려주지 않는다)."""
+        login = self.repo.find_login(login_id)
+        if login is None:
+            return None
+        if not hmac.compare_digest(login["password_hash"],
+                                   hash_password(password, login["customer_id"])):
+            return None
+        return self.customer(login["customer_id"])
 
     def as_of(self) -> date:
-        return _day(self._load("customer.json")["as_of"])
+        return _day(self.repo.meta()["as_of"])
 
     def products(self) -> list[dict]:
-        return self._load("products.json")["products"]
+        return self.repo.list_products()
 
-    def _orders(self) -> list[dict]:
-        return self._load("orders.json")["orders"]
-
-    def _find(self, order_id: str) -> dict | None:
-        return next((o for o in self._orders() if o["order_id"] == order_id), None)
+    def _find(self, customer_id: str, order_id: str) -> dict | None:
+        if not _ORDER_ID.match(order_id or ""):
+            return None
+        return self.repo.get_order(customer_id, order_id)
 
     # ── 판정 로직 ─────────────────────────────────────────────────────
     def issue(self, order: dict) -> str | None:
@@ -116,14 +122,16 @@ class ShopStore:
             "issue": self.issue(order),
         }
 
-    def list_orders(self) -> dict:
-        """최근 주문이 먼저 오도록 정렬한 주문 요약 목록."""
-        orders = sorted(self._orders(), key=lambda o: o["ordered_at"], reverse=True)
-        return {"as_of": self.as_of().isoformat(),
-                "orders": [self.summary(o) for o in orders]}
+    def _recent_first(self, customer_id: str) -> list[dict]:
+        return sorted(self.repo.list_orders(customer_id), key=lambda o: o["ordered_at"], reverse=True)
 
-    def get_order(self, order_id: str) -> dict:
-        order = self._find(order_id) if _ORDER_ID.match(order_id or "") else None
+    def list_orders(self, customer_id: str) -> dict:
+        """최근 주문이 먼저 오도록 정렬한 주문 요약 목록."""
+        return {"as_of": self.as_of().isoformat(),
+                "orders": [self.summary(o) for o in self._recent_first(customer_id)]}
+
+    def get_order(self, customer_id: str, order_id: str) -> dict:
+        order = self._find(customer_id, order_id)
         if order is None:
             return {"found": False, "order_id": order_id,
                     "message": f"주문번호 {order_id}를 찾을 수 없습니다"}
@@ -132,8 +140,8 @@ class ShopStore:
                 "issue": self.issue(order), "as_of": self.as_of().isoformat(),
                 **self._return_info(order)}
 
-    def get_tracking(self, order_id: str) -> dict:
-        order = self._find(order_id) if _ORDER_ID.match(order_id or "") else None
+    def get_tracking(self, customer_id: str, order_id: str) -> dict:
+        order = self._find(customer_id, order_id)
         if order is None:
             return {"found": False, "order_id": order_id,
                     "message": f"주문번호 {order_id}를 찾을 수 없습니다"}
@@ -148,22 +156,23 @@ class ShopStore:
         """상품명·카테고리 단어가 질문에 나오는 상품을 찾는다 (가격·옵션 문의용).
 
         [추가] 처음에는 상품 조회 Tool이 없어서 "극세사 담요 얼마에요?"가 잡담으로 처리됐고,
-        모델이 가격을 지어냈다 (화면 24,900원 → 답변 29,900원). 화면과 같은 products.json에서
+        모델이 가격을 지어냈다 (화면 24,900원 → 답변 29,900원). 화면과 같은 상품 데이터에서
         실제 가격을 읽어 오게 한다. 한국어 조사를 흡수하려고 '질문 단어가 상품 단어로 시작하면'
         일치로 본다 (planning.py의 상품명 매칭과 같은 방식)."""
         words = [w for w in re.split(r"[^0-9a-zA-Z가-힣]+", query) if len(w) >= 2]
+        products = self.products()
         found = []
-        for p in self.products():
+        for p in products:
             vocab = {w for w in re.split(r"[^0-9a-zA-Z가-힣]+", p["name"]) if len(w) >= 2}
             if any(q.startswith(v) for q in words for v in vocab):
                 found.append(p)
         if not found:   # 상품명이 없으면 카테고리로 ("신발 뭐 있어요?")
-            found = [p for p in self.products()
+            found = [p for p in products
                      if any(q.startswith(p["category"]) for q in words)]
         return {"query": query, "found": bool(found),
                 "products": [{k: v for k, v in p.items() if k != "emoji"} for p in found]}
 
-    def orders_for_screen(self) -> list[dict]:
+    def orders_for_screen(self, customer_id: str) -> list[dict]:
         """화면의 '내 주문' 패널용 — 요약 + 상세 + 추적을 한 번에."""
-        orders = sorted(self._orders(), key=lambda o: o["ordered_at"], reverse=True)
-        return [{**o, **self.summary(o), **self._return_info(o)} for o in orders]
+        return [{**o, **self.summary(o), **self._return_info(o)}
+                for o in self._recent_first(customer_id)]

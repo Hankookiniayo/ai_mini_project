@@ -13,7 +13,7 @@ from .retry import with_retry
 
 @traceable(name="supervisor_v1_legacy")
 async def run_v1(deps: SupervisorDeps, query: str, thread_id: str,
-                 history: list[dict]) -> dict:
+                 history: list[dict], customer_id: str) -> dict:
     events = [{"type": "Legacy", "note": "v1: 라우팅/게이트/재계획/검증 없음"}]
     # 이름 기억 같은 단순 대화도, 주문 상담도 전부 같은 선형 경로를 탄다.
     reply, usage = await deps.fast_llm.chat(query, history)
@@ -21,9 +21,10 @@ async def run_v1(deps: SupervisorDeps, query: str, thread_id: str,
         # 주문번호가 없으면 무조건 가장 최근 주문만 본다 (v2의 plan 보정이 없는 legacy 동작)
         ids = ORDER_ID.findall(query)
         if not ids:
-            listing = await deps.mcp.call_tool("list_my_orders", {})
+            listing = await deps.mcp.call_tool("list_my_orders", {"customer_id": customer_id})
             ids = [o["order_id"] for o in listing["orders"][:1]]
-        data, retries = await with_retry(deps.mcp.call_tool, "get_order", {"order_id": ids[0]})
+        data, retries = await with_retry(deps.mcp.call_tool, "get_order",
+                                         {"customer_id": customer_id, "order_id": ids[0]})
         reply = (f"{data['order_id']} 주문은 현재 {data.get('status_label', '확인 불가')} 상태입니다. "
                  f"자세한 내용은 고객센터에 문의하세요.")
         events.append({"type": "TaskCompleted", "source": "order", "target": ids[0],

@@ -7,19 +7,22 @@
 - 대화 이력을 SQLite(session.db)에 저장 — 재시작해도 유지
 - SUPERVISOR_VERSION(v1/v2) 환경변수로 legacy/신형 파이프라인 즉시 전환
 - GET /api/shop/* — 쇼핑몰 화면(상품·내 주문 패널)용 조회 API. 에이전트의 MCP Tool과
-  '같은 파일'(data/shop)을 같은 클래스(mcp_tools/shop.py의 ShopStore)로 읽는다
+  같은 저장소(기본 SQLite shop.db)를 같은 클래스(mcp_tools/shop.py의 ShopStore)로 읽는다
+- POST /api/auth/login·logout — 목업 로그인. 세션 쿠키(shop_sid)로 고객을 식별하고,
+  화면 API와 챗봇은 그 고객의 주문만 본다 (customer_id를 서버가 MCP Tool에 넘긴다)
 - LangSmith: 요청당 chat_request 루트 run 아래로 노드·LLM·MCP 호출이 계층 기록됨
 - LLM_BACKEND=fake | ollama | openai | hybrid (hybrid: 가벼운 대화=Ollama, 나머지=OpenAI)
 """
 import json
 import os
+import secrets
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 
 load_dotenv()   # LANGCHAIN_TRACING_V2 / API_KEY / PROJECT — import보다 먼저
 
-from fastapi import FastAPI
+from fastapi import Cookie, Depends, FastAPI, HTTPException, Response
 from fastapi.responses import StreamingResponse
 from langsmith import traceable
 from langsmith.run_helpers import get_current_run_tree
@@ -34,12 +37,35 @@ from agent.supervisor_v1 import run_v1
 from mcp_tools.shop import ShopStore
 
 CREATION_COUNT = 0   # 프로세스 내 Agent 번들 생성 횟수 (항상 1이어야 정상)
-SHOP = ShopStore()   # 화면용 조회 API의 데이터 소스 (MCP Tool과 같은 파일)
+SHOP = ShopStore()   # 화면용 조회 API·로그인의 데이터 소스 (MCP Tool과 같은 저장소)
+
+# 목업 세션 저장소 — 토큰 → customer_id. 서버를 재시작하면 비워져서 다시 로그인해야 한다
+# (실서비스라면 Redis 같은 공유 저장소에 만료 시간과 함께 둔다).
+SESSION_COOKIE = "shop_sid"
+SESSIONS: dict[str, str] = {}
 
 
 class ChatRequest(BaseModel):   # Pydantic 요청 검증
     message: str
     thread_id: str = "default"
+
+
+class LoginRequest(BaseModel):
+    login_id: str
+    password: str
+
+
+def current_customer_id(shop_sid: str | None = Cookie(default=None)) -> str:
+    """세션 쿠키 → customer_id. 로그인하지 않았으면 401."""
+    customer_id = SESSIONS.get(shop_sid or "")
+    if customer_id is None:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+    return customer_id
+
+
+def _thread_key(customer_id: str, thread_id: str) -> str:
+    """대화 이력도 고객별로 나눈다 — 다른 고객이 같은 thread_id를 보내도 남의 이력을 읽지 못한다."""
+    return f"{customer_id}:{thread_id}"
 
 
 def _build_llms():
@@ -119,21 +145,41 @@ async def health():
             "mcp_transport": app.state.deps.mcp.transport}
 
 
+@app.post("/api/auth/login")
+async def login(req: LoginRequest, response: Response):
+    """아이디·비밀번호 확인 후 세션 쿠키 발급. 틀리면 어느 쪽이 틀렸는지 구분하지 않고 401."""
+    customer = SHOP.authenticate(req.login_id, req.password)
+    if customer is None:
+        raise HTTPException(status_code=401, detail="아이디 또는 비밀번호가 맞지 않습니다")
+    token = secrets.token_urlsafe(24)
+    SESSIONS[token] = customer["customer_id"]
+    response.set_cookie(SESSION_COOKIE, token, httponly=True, samesite="lax")
+    return customer
+
+
+@app.post("/api/auth/logout")
+async def logout(response: Response, shop_sid: str | None = Cookie(default=None)):
+    SESSIONS.pop(shop_sid or "", None)
+    response.delete_cookie(SESSION_COOKIE)
+    return {"ok": True}
+
+
 @app.get("/api/shop/customer")
-async def shop_customer():
-    """로그인한 목업 고객 + 가게 이름 + 기준일."""
-    return SHOP.customer()
+async def shop_customer(customer_id: str = Depends(current_customer_id)):
+    """로그인한 고객 + 가게 이름 + 기준일."""
+    return SHOP.customer(customer_id)
 
 
 @app.get("/api/shop/products")
 async def shop_products():
+    """상품 목록은 로그인 없이도 보인다."""
     return {"products": SHOP.products()}
 
 
 @app.get("/api/shop/orders")
-async def shop_orders():
-    """'내 주문' 패널용 — 주문 상세 + 배송 추적 + 문제(issue) 표시를 한 번에."""
-    return {"as_of": SHOP.as_of().isoformat(), "orders": SHOP.orders_for_screen()}
+async def shop_orders(customer_id: str = Depends(current_customer_id)):
+    """'내 주문' 패널용 — 로그인한 고객의 주문 상세 + 배송 추적 + 문제(issue) 표시를 한 번에."""
+    return {"as_of": SHOP.as_of().isoformat(), "orders": SHOP.orders_for_screen(customer_id)}
 
 
 @app.get("/version")
@@ -161,41 +207,45 @@ def _metadata(result: dict, run_id: str | None) -> dict:
 
 
 @traceable(name="chat_request")
-async def _handle_chat(message: str, thread_id: str) -> tuple[dict, str | None]:
+async def _handle_chat(message: str, thread_id: str,
+                       customer_id: str) -> tuple[dict, str | None]:
     deps = app.state.deps
-    history = deps.session_store.load(thread_id)   # 대화 이력
+    thread_key = _thread_key(customer_id, thread_id)
+    history = deps.session_store.load(thread_key)   # 대화 이력
     if deps.version == "v2":
         result = await app.state.graph.ainvoke(
-            {"query": message, "thread_id": thread_id, "history": history,
-             "events": [], "cost_usd": 0.0})
-    else:
-        result = await run_v1(deps, message, thread_id, history)   # legacy 롤백 경로
-    deps.session_store.append(thread_id, "user", message)
-    deps.session_store.append(thread_id, "assistant", result["final"])
+            {"query": message, "thread_id": thread_id, "customer_id": customer_id,
+             "history": history, "events": [], "cost_usd": 0.0})
+    else:   # legacy 롤백 경로
+        result = await run_v1(deps, message, thread_id, history, customer_id)
+    deps.session_store.append(thread_key, "user", message)
+    deps.session_store.append(thread_key, "assistant", result["final"])
     rt = get_current_run_tree()
     return result, (str(rt.id) if rt else None)
 
 
 @app.post("/chat")
-async def chat(req: ChatRequest):
-    result, run_id = await _handle_chat(req.message, req.thread_id)
+async def chat(req: ChatRequest, customer_id: str = Depends(current_customer_id)):
+    result, run_id = await _handle_chat(req.message, req.thread_id, customer_id)
     return {"reply": result["final"], "events": result.get("events", []),
             "metadata": _metadata(result, run_id)}
 
 
 @app.get("/chat/stream")
-async def chat_stream(message: str, thread_id: str = "default"):
+async def chat_stream(message: str, thread_id: str = "default",
+                      customer_id: str = Depends(current_customer_id)):
     """그래프의 노드별 진행 상황을 SSE로 스트리밍.
 
     이벤트마다 'data: {json}\\n\\n' 형태로 내려보내고 마지막에 data: [DONE] 센티널을
     보낸다 — 프론트엔드는 \\n\\n 경계로 이벤트를 분리해 파싱해야 한다.
     """
     deps = app.state.deps
+    thread_key = _thread_key(customer_id, thread_id)
 
     async def gen():
-        history = deps.session_store.load(thread_id)
+        history = deps.session_store.load(thread_key)
         if deps.version != "v2":
-            result = await run_v1(deps, message, thread_id, history)
+            result = await run_v1(deps, message, thread_id, history, customer_id)
             for ev in result["events"]:
                 yield f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
             yield f"data: {json.dumps({'type': 'FinalAnswer', 'reply': result['final']}, ensure_ascii=False)}\n\n"
@@ -208,8 +258,9 @@ async def chat_stream(message: str, thread_id: str = "default"):
             # 노드가 끝날 때마다의 상태 델타, "custom"은 write_node/chat_answer_node가
             # get_stream_writer()로 실행 중에 즉시 흘려보내는 토큰(AnswerToken) 이벤트다.
             async for mode, payload in app.state.graph.astream(
-                    {"query": message, "thread_id": thread_id, "history": history,
-                     "events": [], "cost_usd": 0.0}, stream_mode=["updates", "custom"]):
+                    {"query": message, "thread_id": thread_id, "customer_id": customer_id,
+                     "history": history, "events": [], "cost_usd": 0.0},
+                    stream_mode=["updates", "custom"]):
                 if mode == "custom":
                     yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
                     continue
@@ -226,8 +277,8 @@ async def chat_stream(message: str, thread_id: str = "default"):
                         last_prompt = delta["last_prompt"]
             # metadata(비용·재시도·검증 횟수 등)도 같이 내려 평가 스크립트가 스트림 하나로 측정
             yield f"data: {json.dumps({'type': 'FinalAnswer', 'reply': final, 'prompt': last_prompt, 'metadata': _metadata(acc, None)}, ensure_ascii=False)}\n\n"
-            deps.session_store.append(thread_id, "user", message)
-            deps.session_store.append(thread_id, "assistant", final)
+            deps.session_store.append(thread_key, "user", message)
+            deps.session_store.append(thread_key, "assistant", final)
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(gen(), media_type="text/event-stream")
